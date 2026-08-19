@@ -5,7 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "push": "node push.js",
+    "pull": "node pull.js"
   },
   "dependencies": {
     "express": "^4.19.2"
