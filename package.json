@@ -1,0 +1,13 @@
+{
+  "name": "sst-stock-simulator",
+  "version": "1.0.0",
+  "description": "模拟炒股软件 - Node.js + JSON 存储",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

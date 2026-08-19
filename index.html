@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>模拟炒股 - 全功能交易终端</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- 顶部导航 -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="logo" onclick="App.showView('market')">📈 模拟炒股终端</div>
+        <!-- 指数条 -->
+        <div class="index-bar" id="indexBar"></div>
+      </div>
+      <div class="topbar-center">
+        <div class="search-box">
+          <input type="text" id="searchInput" placeholder="搜索股票代码/名称/拼音" autocomplete="off">
+          <div class="search-results" id="searchResults"></div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="clock" id="clock"></div>
+        <div class="account-summary" id="accountSummary" onclick="App.showView('account')"></div>
+      </div>
+    </header>
+
+    <!-- 主体 -->
+    <div class="main">
+      <!-- 侧边栏 -->
+      <nav class="sidebar">
+        <a class="nav-item active" data-view="market" onclick="App.showView('market')"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 4-6"/></svg></span><span>行情</span></a>
+        <a class="nav-item" data-view="rankings" onclick="App.showView('rankings')"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 01-10 0V4zM7 6H4v2a3 3 0 003 3M17 6h3v2a3 3 0 01-3 3"/></svg></span><span>排行</span></a>
+        <a class="nav-item" data-view="screener" onclick="App.showView('screener')"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span><span>选股</span></a>
+        <a class="nav-item" data-view="sectors" onclick="App.showView('sectors')"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span><span>板块</span></a>
+        <a class="nav-item" data-view="watchlist" onclick="App.showView('watchlist')"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17.3l-6.16 3.7 1.64-7.03L2 9.24l7.2-.62L12 2l2.8 6.62 7.2.62-5.48 4.73 1.64 7.03z"/></svg></span><span>自选</span></a>
+        <a class="nav-item" data-view="portfolio" onclick="App.showView('portfolio')"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></span><span>持仓</span></a>
+        <a class="nav-item" data-view="orders" onclick="App.showView('orders')"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="18" rx="2"/><path d="M9 4V3a1 1 0 011-1h4a1 1 0 011 1v1M9 12h6M9 16h6"/></svg></span><span>委托</span></a>
+        <a class="nav-item" data-view="deals" onclick="App.showView('deals')"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10l-4 4 4 4M17 14l4-4-4-4M3 14h18"/></svg></span><span>成交</span></a>
+        <a class="nav-item" data-view="account" onclick="App.showView('account')"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></svg></span><span>账户</span></a>
+        <a class="nav-item" data-view="news" onclick="App.showView('news')"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13a2 2 0 012 2v14H6a2 2 0 01-2-2V4zM19 8h2v11a2 2 0 01-2 2"/><path d="M8 8h7M8 12h7M8 16h4"/></svg></span><span>资讯</span></a>
+      </nav>
+
+      <!-- 内容区 -->
+      <main class="content" id="content"></main>
+    </div>
+
+    <!-- 资讯滚动条 -->
+    <div class="news-ticker" id="newsTicker"></div>
+
+    <!-- 个股详情抽屉 -->
+    <div class="stock-detail-overlay" id="detailOverlay">
+      <div class="stock-detail-panel" id="detailPanel">
+        <div id="detailContent"></div>
+      </div>
+    </div>
+
+    <!-- 交易弹窗 -->
+    <div class="trade-modal-overlay" id="tradeModalOverlay">
+      <div class="trade-modal" id="tradeModal"></div>
+    </div>
+
+    <!-- 确认弹窗 -->
+    <div class="confirm-modal-overlay" id="confirmModalOverlay">
+      <div class="confirm-modal" id="confirmModal"></div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast-container" id="toastContainer"></div>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
