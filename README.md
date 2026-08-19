@@ -2,6 +2,23 @@
 
 一个纯前端 + Node.js 后端的模拟炒股软件，数据存储在本地 JSON 文件，无需数据库。包含行情、交易、自选、资讯等完整功能。
 
+## 界面预览
+
+### 行情
+![行情界面](docs/screenshots/market.png)
+
+### 个股详情（K 线 + 五档 + 指标）
+![个股详情](docs/screenshots/detail.png)
+
+### 自选股
+![自选股](docs/screenshots/watchlist.png)
+
+### 委托
+![委托界面](docs/screenshots/orders.png)
+
+### 账户
+![账户界面](docs/screenshots/account.png)
+
 ## 功能
 
 - **行情**：沪深双市指数、涨幅榜/跌幅榜/成交额榜/换手榜、热门板块、自选股轮播
