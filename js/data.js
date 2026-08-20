@@ -127,6 +127,15 @@
     return r;
   }
 
+  // 行情布局
+  async function getLayout() {
+    const r = await request('/layout');
+    return r.data;
+  }
+  async function saveLayout(layout) {
+    await request('/layout', { method: 'POST', body: { layout } });
+  }
+
   // 工具函数（前端需要的格式化）
   const round2 = (n) => Math.round(n * 100) / 100;
   const fmtPct = (pct) => (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
@@ -141,6 +150,8 @@
     getAccount, getHoldings, getOrders, getDealsHistory, getWatchlist,
     // 交易
     submitTrade, cancelOrder, toggleWatch, removeWatch, resetAccount, addCash,
+    // 布局
+    getLayout, saveLayout,
     // 工具
     round2, fmtPct, cls
   };

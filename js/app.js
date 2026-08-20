@@ -82,21 +82,85 @@
     (renderers[view] || renderMarket)();
   }
 
-  // ============ 行情首页 ============
-  async function renderMarket() {
+  // ============ 行情布局配置 ============
+  const MODULE_DEFS = [
+    { id: 'watchlist', name: '我的自选', defaultW: 'large' },
+    { id: 'holdings', name: '我的持仓', defaultW: 'large' },
+    { id: 'orders', name: '当前委托', defaultW: 'large' },
+    { id: 'indices', name: '市场指数', defaultW: 'large' },
+    { id: 'gainers', name: '涨幅榜', defaultW: 'medium' },
+    { id: 'losers', name: '跌幅榜', defaultW: 'medium' },
+    { id: 'amount', name: '成交额榜', defaultW: 'medium' },
+    { id: 'sectors', name: '热门板块', defaultW: 'medium' }
+  ];
+  const DEFAULT_LAYOUT = MODULE_DEFS.map(m => ({ id: m.id, visible: true, w: m.defaultW || 'medium', collapsed: false }));
+  let marketLayout = null; // 异步加载
+  function normalizeLayout(saved) {
+    if (!saved || !Array.isArray(saved)) return DEFAULT_LAYOUT.map(x => ({ ...x, order: x.order ? [...x.order] : undefined }));
+    // 迁移老配置：rankings → gainers/losers/amount/sectors
+    const migrated = [];
+    saved.forEach(item => {
+      if (item.id === 'rankings') {
+        ['gainers', 'losers', 'amount', 'sectors'].forEach(id => {
+          if (!migrated.find(x => x.id === id)) migrated.push({ id, visible: !!item.visible, w: 'medium', collapsed: false });
+        });
+      } else {
+        migrated.push({
+          id: item.id,
+          visible: !!item.visible,
+          w: item.w || (MODULE_DEFS.find(m => m.id === item.id) || {}).defaultW || 'medium',
+          order: Array.isArray(item.order) ? [...item.order] : undefined,
+          collapsed: !!item.collapsed
+        });
+      }
+    });
+    // 保留迁移后顺序，补充新增的模块
+    const result = [];
+    migrated.forEach(item => {
+      if (MODULE_DEFS.some(m => m.id === item.id) && !result.find(x => x.id === item.id)) {
+        result.push({
+          id: item.id,
+          visible: !!item.visible,
+          w: item.w || 'medium',
+          order: Array.isArray(item.order) ? [...item.order] : undefined,
+          collapsed: !!item.collapsed
+        });
+      }
+    });
+    MODULE_DEFS.forEach(m => {
+      if (!result.find(x => x.id === m.id)) {
+        const def = DEFAULT_LAYOUT.find(d => d.id === m.id) || {};
+        result.push({ id: m.id, visible: true, w: m.defaultW || 'medium', order: def.order ? [...def.order] : undefined, collapsed: false });
+      }
+    });
+    return result;
+  }
+  async function loadMarketLayout() {
+    if (marketLayout) return marketLayout;
     try {
-      const [gainers, losers, active, sectors, indices, watchlist] = await Promise.all([
-        DE.getStocks({ sort: 'pct-desc', limit: 8 }),
-        DE.getStocks({ sort: 'pct-asc', limit: 8 }),
-        DE.getStocks({ sort: 'amount-desc', limit: 8 }),
-        DE.getSectors(),
-        DE.getIndices(),
-        DE.getWatchlist()
-      ]);
-      const hotSectors = sectors.slice(0, 6);
-      $('#content').innerHTML = `
-        ${watchlist.length ? `<div class="watchlist-section panel" id="watchlistSection">
-          <div class="panel-header"><span>我的自选</span><span class="more" onclick="App.showView('watchlist')">管理自选 ></span></div>
+      const saved = await DE.getLayout();
+      marketLayout = normalizeLayout(saved);
+    } catch {
+      marketLayout = DEFAULT_LAYOUT.map(x => ({ ...x, order: x.order ? [...x.order] : undefined }));
+    }
+    return marketLayout;
+  }
+  async function saveMarketLayout() {
+    try { await DE.saveLayout(marketLayout); } catch {}
+  }
+
+  // 渲染单个行情模块的 HTML（不含外层 .market-module 包装）
+  function renderMarketModule(item, ctx) {
+    const id = item.id;
+    const w = item.w || 'large';
+    const X_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+    const hideBtn = `<span class="col-btn" onclick="event.stopPropagation();App.toggleModuleVisible('${id}',false)" title="隐藏模块">${X_SVG}</span>`;
+    const sw = `<span class="mod-size" onclick="event.stopPropagation()"><button type="button" class="ms-btn ${w === 'large' ? 'active' : ''}" onclick="App.setModuleSize('${id}','large')">大</button><button type="button" class="ms-btn ${w === 'medium' ? 'active' : ''}" onclick="App.setModuleSize('${id}','medium')">中</button><button type="button" class="ms-btn ${w === 'small' ? 'active' : ''}" onclick="App.setModuleSize('${id}','small')">小</button></span>`;
+    switch (id) {
+      case 'watchlist': {
+        const watchlist = ctx.watchlist;
+        if (!watchlist.length) return '';
+        return `<div class="panel-header"><span>我的自选</span>${sw}<span class="more" onclick="App.showView('watchlist')">管理自选 ></span>${hideBtn}</div>
           <div class="panel-body">
             <div class="watchlist-carousel" id="watchlistCarousel">
               <div class="wc-track" id="wcTrack">${watchlist.map(s => `<div class="wc-slide" data-code="${s.code}">${renderWatchCard(s)}</div>`).join('')}</div>
@@ -104,39 +168,318 @@
               <button class="wc-nav wc-next" id="wcNext">›</button>
               <div class="wc-dots" id="wcDots">${watchlist.map((_, i) => `<span class="wc-dot ${i === 0 ? 'active' : ''}" data-idx="${i}"></span>`).join('')}</div>
             </div>
-          </div>
-        </div>` : ''}
-        <div class="index-cards">${indices.map(idx => `
-          <div class="index-card" data-index="${idx.code}" onclick="App.showView('sectors')">
+          </div>`;
+      }
+      case 'holdings': {
+        const holdings = ctx.holdings;
+        if (!holdings.length) return '';
+        return `<div class="panel-header"><span>我的持仓</span>${sw}<span class="more" onclick="App.showView('portfolio')">全部持仓 ></span>${hideBtn}</div>
+          <div class="panel-body" style="padding:0">${holdingsTableMini(holdings, ctx.holdingsData.summary)}</div>`;
+      }
+      case 'orders': {
+        const activeOrders = ctx.activeOrders;
+        if (!activeOrders.length) return '';
+        return `<div class="panel-header"><span>当前委托</span>${sw}<span class="more" onclick="App.showView('orders')">全部委托 ></span>${hideBtn}</div>
+          <div class="panel-body" style="padding:0">${ordersTableMini(activeOrders)}</div>`;
+      }
+      case 'indices': {
+        const indices = ctx.indices;
+        const idxItem = marketLayout.find(x => x.id === 'indices') || {};
+        const order = idxItem.order || [];
+        const sorted = [...indices].sort((a, b) => {
+          const ia = order.indexOf(a.code), ib = order.indexOf(b.code);
+          return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib);
+        });
+        return `<div class="panel-header"><span>市场指数</span>${sw}${hideBtn}</div>
+          <div class="panel-body"><div class="index-cards">${sorted.map(idx => `
+          <div class="index-card" data-ic="${idx.code}" draggable="true" onclick="App.showView('sectors')">
             <div class="ic-name">${esc(idx.name)}</div>
             <div class="ic-val ${DE.cls(idx.pct)}" data-field="value">${fmt(idx.value)}</div>
             <div class="ic-pct ${DE.cls(idx.pct)}" data-field="pct">${idx.change >= 0 ? '+' : ''}${fmt(idx.change)} (${DE.fmtPct(idx.pct)})</div>
-          </div>`).join('')}</div>
-        <div class="market-grid">
-          <div class="panel"><div class="panel-header"><span>涨幅榜</span><span class="more" onclick="App.showView('rankings')">更多 ></span></div><div class="panel-body" style="padding:0">${stockTableMini(gainers)}</div></div>
-          <div class="panel"><div class="panel-header"><span>跌幅榜</span><span class="more" onclick="App.showView('rankings')">更多 ></span></div><div class="panel-body" style="padding:0">${stockTableMini(losers)}</div></div>
-          <div class="panel"><div class="panel-header"><span>成交额榜</span><span class="more" onclick="App.showView('rankings')">更多 ></span></div><div class="panel-body" style="padding:0">${stockTableMini(active)}</div></div>
-          <div class="panel"><div class="panel-header"><span>热门板块</span><span class="more" onclick="App.showView('sectors')">更多 ></span></div><div class="panel-body"><div class="sector-grid">${hotSectors.map(sc => `
-            <div class="sector-card" data-sector="${sc.name}" onclick="App.showSector('${sc.name}')">
-              <div class="sc-name">${esc(sc.name)}</div>
-              <div class="sc-pct ${DE.cls(sc.avgPct)}" data-field="avgPct">${DE.fmtPct(sc.avgPct)}</div>
-              <div class="sc-info"><span>${sc.count}只</span></div>
-            </div>`).join('')}</div></div></div>
-        </div>
-      `;
+          </div>`).join('')}</div></div>`;
+      }
+      case 'gainers': {
+        const gainers = ctx.gainers;
+        return `<div class="panel-header"><span>涨幅榜</span>${sw}<span class="more" onclick="App.showView('rankings')">更多 ></span>${hideBtn}</div><div class="panel-body" style="padding:0">${stockTableMini(gainers)}</div>`;
+      }
+      case 'losers': {
+        const losers = ctx.losers;
+        return `<div class="panel-header"><span>跌幅榜</span>${sw}<span class="more" onclick="App.showView('rankings')">更多 ></span>${hideBtn}</div><div class="panel-body" style="padding:0">${stockTableMini(losers)}</div>`;
+      }
+      case 'amount': {
+        const active = ctx.active;
+        return `<div class="panel-header"><span>成交额榜</span>${sw}<span class="more" onclick="App.showView('rankings')">更多 ></span>${hideBtn}</div><div class="panel-body" style="padding:0">${stockTableMini(active)}</div>`;
+      }
+      case 'sectors': {
+        const hotSectors = ctx.hotSectors;
+        return `<div class="panel-header"><span>热门板块</span>${sw}<span class="more" onclick="App.showView('sectors')">更多 ></span>${hideBtn}</div><div class="panel-body"><div class="sector-grid">${hotSectors.map(sc => `
+          <div class="sector-card" data-sector="${sc.name}" onclick="App.showSector('${sc.name}')">
+            <div class="sc-name">${esc(sc.name)}</div>
+            <div class="sc-pct ${DE.cls(sc.avgPct)}" data-field="avgPct">${DE.fmtPct(sc.avgPct)}</div>
+            <div class="sc-info"><span>${sc.count}只</span></div>
+          </div>`).join('')}</div></div>`;
+      }
+    }
+    return '';
+  }
+
+  // ============ 行情首页 ============
+  async function renderMarket() {
+    try {
+      await loadMarketLayout();
+      const [gainers, losers, active, sectors, indices, watchlist, holdingsData, ordersData] = await Promise.all([
+        DE.getStocks({ sort: 'pct-desc', limit: 8 }),
+        DE.getStocks({ sort: 'pct-asc', limit: 8 }),
+        DE.getStocks({ sort: 'amount-desc', limit: 8 }),
+        DE.getSectors(),
+        DE.getIndices(),
+        DE.getWatchlist(),
+        DE.getHoldings(),
+        DE.getOrders()
+      ]);
+      const holdings = holdingsData.holdings || [];
+      const activeOrders = (ordersData && ordersData.active) || [];
+      const hotSectors = sectors.slice(0, 6);
+      const ctx = { gainers, losers, active, hotSectors, indices, watchlist, holdings, holdingsData, activeOrders };
+      // 按 layout 顺序渲染可见模块
+      const modulesHtml = marketLayout.map(item => {
+        if (!item.visible) return '';
+        const inner = renderMarketModule(item, ctx);
+        if (!inner) return ''; // 无数据则不显示
+        return `<div class="market-module panel mod-w-${item.w || 'large'}" data-module="${item.id}">${inner}</div>`;
+      }).join('');
+      $('#content').innerHTML = `<div class="market-modules">${modulesHtml}</div>`;
       renderTopbarIndices(indices);
       // 保存自选股缓存供轮播和切换K线类型使用
       DE._watchlistCache = watchlist;
       // 存入JS对象供快速查找
       watchlist.forEach(s => watchStockData[s.code] = s);
       // 初始化轮播
-      if (watchlist.length) {
+      if (watchlist.length && marketLayout.find(m => m.id === 'watchlist' && m.visible)) {
         requestAnimationFrame(() => {
           initCarousel();
           watchlist.forEach(s => drawWatchChart(s));
         });
       }
+      // 绑定拖拽
+      bindModuleDrag();
+      bindIndexCardDrag();
     } catch (e) { $('#content').innerHTML = errorHtml(e); }
+  }
+
+  // ============ 模块拖拽 ============
+  let dragModuleId = null;
+  function bindModuleDrag() {
+    const modules = document.querySelectorAll('.market-module');
+    modules.forEach(m => {
+      // 只有标题栏可拖，整个模块作为拖拽影像
+      const header = m.querySelector('.panel-header') || (m.dataset.module === 'indices' ? m.querySelector('.index-cards') : m);
+      if (header !== m) {
+        header.style.cursor = 'grab';
+        header.addEventListener('mousedown', () => { m.setAttribute('draggable', 'true'); });
+        header.addEventListener('mouseup', () => { m.removeAttribute('draggable'); });
+        header.addEventListener('mouseleave', () => { m.removeAttribute('draggable'); });
+        // 点击/输入不触发拖拽
+        header.addEventListener('click', e => {
+          if (e.target.closest('input, button, .more, a')) m.removeAttribute('draggable');
+        });
+      } else {
+        m.style.cursor = 'grab';
+      }
+      m.addEventListener('dragstart', e => {
+        // 指数卡片内部拖拽放行，交给 index-card 自己处理
+        if (m.dataset.module === 'indices' && e.target.classList && e.target.classList.contains('index-card')) return;
+        // 只允许从标题栏发起的拖拽
+        const isFromHeader = e.target === m || m.contains(e.target) && (e.target === header || header.contains(e.target));
+        if (!isFromHeader) { e.preventDefault(); return; }
+        dragModuleId = m.dataset.module;
+        m.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        try { e.dataTransfer.setData('text/plain', dragModuleId); } catch (_) {}
+      });
+      m.addEventListener('dragend', () => {
+        m.classList.remove('dragging');
+        m.removeAttribute('draggable');
+        document.querySelectorAll('.market-module').forEach(x => x.classList.remove('drag-over'));
+      });
+      m.addEventListener('dragover', e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (m.dataset.module !== dragModuleId) m.classList.add('drag-over');
+      });
+      m.addEventListener('dragleave', () => m.classList.remove('drag-over'));
+      m.addEventListener('drop', e => {
+        e.preventDefault();
+        m.classList.remove('drag-over');
+        const targetId = m.dataset.module;
+        if (!dragModuleId || dragModuleId === targetId) return;
+        const fromIdx = marketLayout.findIndex(x => x.id === dragModuleId);
+        const toIdx = marketLayout.findIndex(x => x.id === targetId);
+        if (fromIdx < 0 || toIdx < 0) return;
+        const [moved] = marketLayout.splice(fromIdx, 1);
+        marketLayout.splice(toIdx, 0, moved);
+        saveMarketLayout();
+        renderMarket();
+      });
+    });
+  }
+  // 指数卡片内部拖拽排序
+  let dragIcCode = null;
+  function bindIndexCardDrag() {
+    const cards = document.querySelectorAll('.market-module[data-module="indices"] .index-card');
+    cards.forEach(card => {
+      card.addEventListener('dragstart', e => {
+        dragIcCode = card.dataset.ic;
+        card.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        try { e.dataTransfer.setData('text/plain', dragIcCode); } catch (_) {}
+        e.stopPropagation();
+      });
+      card.addEventListener('dragend', () => {
+        card.classList.remove('dragging');
+        cards.forEach(x => x.classList.remove('drag-over'));
+        dragIcCode = null;
+      });
+      card.addEventListener('dragover', e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (card.dataset.ic !== dragIcCode) card.classList.add('drag-over');
+      });
+      card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
+      card.addEventListener('drop', e => {
+        e.preventDefault();
+        card.classList.remove('drag-over');
+        const targetCode = card.dataset.ic;
+        if (!dragIcCode || dragIcCode === targetCode) return;
+        const idxItem = marketLayout.find(x => x.id === 'indices');
+        if (!idxItem) return;
+        const order = idxItem.order || [];
+        const fromIdx = order.indexOf(dragIcCode);
+        const toIdx = order.indexOf(targetCode);
+        if (fromIdx < 0 && toIdx < 0) {
+          // order 为空，用当前 DOM 顺序初始化
+          const curCodes = Array.from(cards).map(c => c.dataset.ic);
+          const fi = curCodes.indexOf(dragIcCode), ti = curCodes.indexOf(targetCode);
+          if (fi < 0 || ti < 0) return;
+          const [mv] = curCodes.splice(fi, 1);
+          curCodes.splice(ti, 0, mv);
+          idxItem.order = curCodes;
+        } else {
+          if (fromIdx < 0 || toIdx < 0) return;
+          const [mv] = order.splice(fromIdx, 1);
+          order.splice(toIdx, 0, mv);
+        }
+        saveMarketLayout();
+        renderMarket();
+      });
+    });
+  }
+
+  // ============ 布局设置面板 ============
+  let lsDragId = null;
+  async function openLayoutSettings() {
+    await loadMarketLayout();
+    renderLayoutList();
+    $('#layoutSettingsOverlay').classList.add('show');
+  }
+  function closeLayoutSettings() {
+    $('#layoutSettingsOverlay').classList.remove('show');
+  }
+  function renderLayoutList() {
+    const list = $('#lsList');
+    list.innerHTML = marketLayout.map(item => {
+      const def = MODULE_DEFS.find(m => m.id === item.id);
+      const w = item.w || 'large';
+      const wOpts = [['large', '大'], ['medium', '中'], ['small', '小']];
+      const wHtml = wOpts.map(([v, lbl]) => `<button type="button" class="ls-size-btn ${w === v ? 'active' : ''}" onclick="App.setModuleSize('${item.id}','${v}')">${lbl}</button>`).join('');
+      return `<div class="ls-item" data-id="${item.id}" draggable="true">
+        <span class="ls-handle">⣿</span>
+        <label class="ls-label"><input type="checkbox" ${item.visible ? 'checked' : ''} onchange="App.toggleModuleVisible('${item.id}', this.checked)"><span>${def ? def.name : item.id}</span></label>
+        <div class="ls-size" onclick="event.stopPropagation()"><span class="ls-size-label">宽</span><div class="ls-size-grp">${wHtml}</div></div>
+      </div>`;
+    }).join('');
+    // 绑定拖拽
+    list.querySelectorAll('.ls-item').forEach(item => {
+      item.addEventListener('dragstart', e => {
+        lsDragId = item.dataset.id;
+        item.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        try { e.dataTransfer.setData('text/plain', lsDragId); } catch (_) {}
+      });
+      item.addEventListener('dragend', () => {
+        item.classList.remove('dragging');
+        list.querySelectorAll('.ls-item').forEach(x => x.classList.remove('drag-over'));
+      });
+      item.addEventListener('dragover', e => {
+        e.preventDefault();
+        if (item.dataset.id !== lsDragId) item.classList.add('drag-over');
+      });
+      item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
+      item.addEventListener('drop', e => {
+        e.preventDefault();
+        item.classList.remove('drag-over');
+        const targetId = item.dataset.id;
+        if (!lsDragId || lsDragId === targetId) return;
+        const fromIdx = marketLayout.findIndex(x => x.id === lsDragId);
+        const toIdx = marketLayout.findIndex(x => x.id === targetId);
+        if (fromIdx < 0 || toIdx < 0) return;
+        const [moved] = marketLayout.splice(fromIdx, 1);
+        marketLayout.splice(toIdx, 0, moved);
+        saveMarketLayout();
+        renderLayoutList();
+      });
+    });
+  }
+  function setModuleSize(id, w) {
+    const item = marketLayout.find(x => x.id === id);
+    if (!item) return;
+    item.w = w;
+    saveMarketLayout();
+    renderLayoutList();
+    // 当前在行情页时立即重渲染
+    if (currentView === 'market') renderMarket();
+  }
+  function toggleModuleVisible(id, visible) {
+    const item = marketLayout.find(x => x.id === id);
+    if (!item || item.visible === visible) return;
+    item.visible = visible;
+    saveMarketLayout();
+    renderLayoutList();
+    // 当前在行情页，局部 DOM 移除/插入，不用整页重渲
+    if (currentView !== 'market') return;
+    const modEl = document.querySelector(`.market-module[data-module="${id}"]`);
+    if (!visible && modEl) {
+      modEl.style.transition = 'opacity .15s, transform .15s';
+      modEl.style.opacity = '0';
+      modEl.style.transform = 'scale(.98)';
+      setTimeout(() => { modEl.remove(); }, 140);
+    } else if (visible) {
+      renderMarket(); // 插入需要重渲染按序占位
+    }
+  }
+  function toggleModuleCollapse(id) {
+    const item = marketLayout.find(x => x.id === id);
+    if (!item) return;
+    item.collapsed = !item.collapsed;
+    saveMarketLayout();
+    if (currentView !== 'market') return;
+    const modEl = document.querySelector(`.market-module[data-module="${id}"]`);
+    if (!modEl) return;
+    modEl.classList.toggle('is-collapsed', item.collapsed);
+    const colBtn = modEl.querySelector('.col-toggle');
+    if (colBtn) {
+      colBtn.textContent = item.collapsed ? '›' : '‹';
+      colBtn.title = item.collapsed ? '展开' : '折叠';
+    }
+  }
+  function applyLayout() {
+    closeLayoutSettings();
+    if (currentView === 'market') renderMarket();
+  }
+  function resetLayout() {
+    marketLayout = DEFAULT_LAYOUT.map(x => ({ ...x, order: x.order ? [...x.order] : undefined, collapsed: false }));
+    saveMarketLayout();
+    renderLayoutList();
   }
 
   // ============ 自选股轮播 ============
@@ -201,9 +544,9 @@
     const cls = DE.cls(m.pct);
     const market = s.market === 'SH' ? '上海' : '深圳';
     // 将股票数据存在slide元素上，方便切换时直接读取
-    return `<div class="wc-top" onclick="App.openDetail('${s.code}')">
+    return `<div class="wc-top">
       <div class="wc-info">
-        <div class="wc-name">${esc(s.name)} <span class="wc-code">${s.code}</span></div>
+        <div class="wc-name"><span style="cursor:pointer;color:var(--text)" onclick="App.openDetail('${s.code}')">${esc(s.name)}</span> <span class="wc-code">${s.code}</span></div>
         <div class="wc-sub">${market} · ${esc(s.sector)}</div>
         <div class="wc-price ${cls}" data-field="price">${fmt(s.price)}</div>
         <div class="wc-change ${cls}" data-field="change">${m.change >= 0 ? '+' : ''}${fmt(m.change)} (${DE.fmtPct(m.pct)})</div>
@@ -222,17 +565,17 @@
           <div class="wmi"><span>涨停</span><span class="up" data-field="upLimit">${fmt(m.upLimit)}</span></div>
         </div>
         <div class="wc-actions">
-          <button class="btn btn-sm btn-buy" onclick="event.stopPropagation();App.openTrade('buy','${s.code}')">买入</button>
-          <button class="btn btn-sm btn-sell" onclick="event.stopPropagation();App.openTrade('sell','${s.code}')">卖出</button>
-          <button class="btn btn-sm" onclick="event.stopPropagation();App.removeWatch('${s.code}')">移除</button>
+          <button class="btn btn-sm btn-buy" onclick="App.openTrade('buy','${s.code}')">买入</button>
+          <button class="btn btn-sm btn-sell" onclick="App.openTrade('sell','${s.code}')">卖出</button>
+          <button class="btn btn-sm" onclick="App.removeWatch('${s.code}')">移除</button>
         </div>
       </div>
       <div class="wc-chart-area">
         <div class="wc-chart-tabs">
-          <span class="wct active" data-type="minute" onclick="event.stopPropagation();App.setWatchChartType('${s.code}','minute')">分时</span>
-          <span class="wct" data-type="day" onclick="event.stopPropagation();App.setWatchChartType('${s.code}','day')">日K</span>
-          <span class="wct" data-type="week" onclick="event.stopPropagation();App.setWatchChartType('${s.code}','week')">周K</span>
-          <span class="wct" data-type="month" onclick="event.stopPropagation();App.setWatchChartType('${s.code}','month')">月K</span>
+          <span class="wct active" data-type="minute" onclick="App.setWatchChartType('${s.code}','minute')">分时</span>
+          <span class="wct" data-type="day" onclick="App.setWatchChartType('${s.code}','day')">日K</span>
+          <span class="wct" data-type="week" onclick="App.setWatchChartType('${s.code}','week')">周K</span>
+          <span class="wct" data-type="month" onclick="App.setWatchChartType('${s.code}','month')">月K</span>
         </div>
         <div class="wc-chart-wrap"><canvas class="watch-chart" data-chart="${s.code}"></canvas></div>
       </div>
@@ -294,8 +637,48 @@
       }).join('')}</tbody></table>`;
   }
 
+  // 行情首页持仓 mini（汇总卡片 + 紧凑表）
+  function holdingsTableMini(holdings, summary) {
+    const totalMV = (summary && summary.marketValue) || holdings.reduce((s, h) => s + (h.marketValue || 0), 0);
+    const totalProfit = (summary && summary.totalProfit) || holdings.reduce((s, h) => s + (h.profit || 0), 0);
+    const profitPct = totalMV - totalProfit ? (totalProfit / (totalMV - totalProfit) * 100) : 0;
+    return `<div class="holdings-mini-cards">
+        <div class="hmc-card"><div class="hmc-label">持仓市值</div><div class="hmc-val">${fmt(totalMV)}</div></div>
+        <div class="hmc-card"><div class="hmc-label">浮动盈亏</div><div class="hmc-val ${DE.cls(totalProfit)}">${totalProfit >= 0 ? '+' : ''}${fmt(totalProfit)}</div></div>
+        <div class="hmc-card"><div class="hmc-label">盈亏比</div><div class="hmc-val ${DE.cls(profitPct)}">${DE.fmtPct(profitPct)}</div></div>
+        <div class="hmc-card"><div class="hmc-label">可用资金</div><div class="hmc-val">${fmt(summary && summary.cash || 0)}</div></div>
+        <div class="hmc-card"><div class="hmc-label">持仓数</div><div class="hmc-val">${holdings.length}</div></div>
+      </div>
+      <table class="tbl"><thead><tr><th>名称代码</th><th>持仓</th><th>可用</th><th>成本</th><th>现价</th><th>盈亏</th><th>盈亏比</th><th>操作</th></tr></thead>
+      <tbody>${holdings.map(h => `<tr data-code="${h.code}">
+        <td onclick="App.openDetail('${h.code}')"><div class="stock-name"><span class="sn-name">${esc(h.name)}</span><span class="sn-code">${h.code}</span></div></td>
+        <td>${h.volume + h.frozen}</td>
+        <td>${h.available}</td>
+        <td>${fmt(h.cost)}</td>
+        <td class="${DE.cls(h.profitPct)}" data-field="price">${fmt(h.price)}</td>
+        <td class="${DE.cls(h.profit)}" data-field="profit">${h.profit >= 0 ? '+' : ''}${fmt(h.profit)}</td>
+        <td class="${DE.cls(h.profitPct)}" data-field="profitPct">${DE.fmtPct(h.profitPct)}</td>
+        <td style="text-align:left"><button class="btn btn-sm btn-sell" onclick="event.stopPropagation();App.openTrade('sell','${h.code}')">卖出</button></td>
+      </tr>`).join('')}</tbody></table>`;
+  }
+
   function errorHtml(e) {
     return `<div class="empty-state"><div class="es-ico">⚠️</div>加载失败<br><span style="font-size:12px">${esc(e.message)}</span></div>`;
+  }
+
+  // 行情首页当前委托 mini 表格
+  function ordersTableMini(orders) {
+    return `<table class="tbl"><thead><tr><th>时间</th><th>名称代码</th><th>方向</th><th>委托价</th><th>委托量</th><th>已成交</th><th>状态</th><th>操作</th></tr></thead>
+      <tbody>${orders.map(o => `<tr data-order-id="${o.id}">
+        <td>${o.time}</td>
+        <td onclick="App.openDetail('${o.code}')"><div class="stock-name"><span class="sn-name">${esc(o.name)}</span><span class="sn-code">${o.code}</span></div></td>
+        <td><span class="${o.side === 'buy' ? 'up' : 'down'}">${o.side === 'buy' ? '买入' : '卖出'}</span></td>
+        <td>${fmt(o.price)}</td>
+        <td>${o.volume}</td>
+        <td>${o.filledVolume}</td>
+        <td>${o.status}</td>
+        <td><button class="btn btn-sm" onclick="App.cancelOrder('${o.id}')">撤单</button></td>
+      </tr>`).join('')}</tbody></table>`;
   }
 
   // ============ 排行榜 ============
@@ -510,7 +893,9 @@
     try {
       await DE.removeWatch(code);
       toast('已移出自选', 'info');
-      renderWatchlist();
+      // 刷新当前视图（而非强制跳到自选页）
+      if (currentView === 'market') await refreshMarketLive();
+      else if (currentView === 'watchlist') renderWatchlist();
     } catch (e) { toast(e.message, 'error'); }
   }
 
@@ -774,6 +1159,8 @@
           // 刷新当前相关视图
           if (currentView === 'portfolio' || currentView === 'orders' || currentView === 'deals' || currentView === 'account') {
             showView(currentView);
+          } else if (currentView === 'market') {
+            await refreshMarketLive();
           }
         } catch (e) {}
       }, 1200);
@@ -785,7 +1172,11 @@
     try {
       const r = await DE.cancelOrder(orderId);
       toast(r.msg || '已撤单', 'info');
-      renderOrders();
+      // 刷新当前视图（而非强制跳到委托页）
+      if (currentView === 'market') await refreshMarketLive();
+      else if (currentView === 'portfolio' || currentView === 'orders' || currentView === 'deals' || currentView === 'account') {
+        showView(currentView);
+      }
     } catch (e) { toast(e.message, 'error'); }
   }
 
@@ -1036,56 +1427,87 @@
 
   // 行情首页局部更新
   async function refreshMarketLive() {
-    const [gainers, losers, active, sectors, indices, watchlist] = await Promise.all([
+    await loadMarketLayout();
+    const [gainers, losers, active, sectors, indices, watchlist, holdingsData, ordersData] = await Promise.all([
       DE.getStocks({ sort: 'pct-desc', limit: 8 }),
       DE.getStocks({ sort: 'pct-asc', limit: 8 }),
       DE.getStocks({ sort: 'amount-desc', limit: 8 }),
       DE.getSectors(),
       DE.getIndices(),
-      DE.getWatchlist()
+      DE.getWatchlist(),
+      DE.getHoldings(),
+      DE.getOrders()
     ]);
     updateStockRows(gainers); updateStockRows(losers); updateStockRows(active);
     // 保存自选股缓存供轮播使用
     DE._watchlistCache = watchlist;
     watchlist.forEach(s => watchStockData[s.code] = s);
-    // 更新自选股区域（数量变化时重建，否则局部更新）
-    const section = $('#watchlistSection');
+    // 更新自选股模块（数量变化时重建，否则局部更新）
+    const watchlistModule = document.querySelector('.market-module[data-module="watchlist"]');
     if (watchlist.length) {
-      if (!section) { renderMarket(); return; }
-      const slides = section.querySelectorAll('.wc-slide');
-      const existingCodes = Array.from(slides).map(el => el.dataset.code);
-      const newCodes = watchlist.map(s => s.code);
-      if (existingCodes.join(',') !== newCodes.join(',')) { renderMarket(); return; }
-      // 局部更新当前显示的卡片
-      const activeSlide = slides[carouselIdx];
-      if (activeSlide) {
-        const code = activeSlide.dataset.code;
-        const s = watchlist.find(x => x.code === code);
-        if (s) {
-          const m = s.metrics;
-          const cls = DE.cls(m.pct);
-          const upd = (field, val, c) => { const el = activeSlide.querySelector(`[data-field="${field}"]`); if (el) { el.textContent = val; if (c) el.className = c; } };
-          upd('price', fmt(s.price), 'wc-price ' + cls);
-          upd('change', (m.change >= 0 ? '+' : '') + fmt(m.change) + ' (' + DE.fmtPct(m.pct) + ')', 'wc-change ' + cls);
-          upd('open', fmt(s.open), DE.cls(s.open - s.preClose));
-          upd('high', fmt(s.high), 'up');
-          upd('low', fmt(s.low), 'down');
-          upd('volume', fmtVol(m.volume));
-          upd('amount', fmt(m.amount) + '亿');
-          upd('turnover', fmt(m.turnover) + '%');
-          upd('amplitude', fmt(m.amplitude) + '%');
-          upd('marketCap', fmt(m.marketCap) + '亿');
-          upd('upLimit', fmt(m.upLimit), 'up');
-          upd('downLimit', fmt(m.downLimit), 'down');
-          requestAnimationFrame(() => drawWatchChart(s));
+      if (!watchlistModule) {
+        // 模块不存在（可能被隐藏或移除），若配置可见则整页重建
+        if (marketLayout.find(m => m.id === 'watchlist' && m.visible)) { renderMarket(); return; }
+      } else {
+        const slides = watchlistModule.querySelectorAll('.wc-slide');
+        const existingCodes = Array.from(slides).map(el => el.dataset.code);
+        const newCodes = watchlist.map(s => s.code);
+        if (existingCodes.join(',') !== newCodes.join(',')) { renderMarket(); return; }
+        // 局部更新当前显示的卡片
+        const activeSlide = slides[carouselIdx];
+        if (activeSlide) {
+          const code = activeSlide.dataset.code;
+          const s = watchlist.find(x => x.code === code);
+          if (s) {
+            const m = s.metrics;
+            const cls = DE.cls(m.pct);
+            const upd = (field, val, c) => { const el = activeSlide.querySelector(`[data-field="${field}"]`); if (el) { el.textContent = val; if (c) el.className = c; } };
+            upd('price', fmt(s.price), 'wc-price ' + cls);
+            upd('change', (m.change >= 0 ? '+' : '') + fmt(m.change) + ' (' + DE.fmtPct(m.pct) + ')', 'wc-change ' + cls);
+            upd('open', fmt(s.open), DE.cls(s.open - s.preClose));
+            upd('high', fmt(s.high), 'up');
+            upd('low', fmt(s.low), 'down');
+            upd('volume', fmtVol(m.volume));
+            upd('amount', fmt(m.amount) + '亿');
+            upd('turnover', fmt(m.turnover) + '%');
+            upd('amplitude', fmt(m.amplitude) + '%');
+            upd('marketCap', fmt(m.marketCap) + '亿');
+            upd('upLimit', fmt(m.upLimit), 'up');
+            upd('downLimit', fmt(m.downLimit), 'down');
+            requestAnimationFrame(() => drawWatchChart(s));
+          }
         }
       }
-    } else if (section) {
-      section.remove();
+    } else if (watchlistModule) {
+      renderMarket(); return;
+    }
+    // 更新持仓模块
+    const holdings = holdingsData.holdings || [];
+    const holdingsModule = document.querySelector('.market-module[data-module="holdings"]');
+    if (holdings.length) {
+      if (!holdingsModule) {
+        if (marketLayout.find(m => m.id === 'holdings' && m.visible)) { renderMarket(); return; }
+      } else {
+        holdingsModule.querySelector('.panel-body').innerHTML = holdingsTableMini(holdings, holdingsData.summary);
+      }
+    } else if (holdingsModule) {
+      renderMarket(); return;
+    }
+    // 更新委托模块
+    const activeOrders = (ordersData && ordersData.active) || [];
+    const ordersModule = document.querySelector('.market-module[data-module="orders"]');
+    if (activeOrders.length) {
+      if (!ordersModule) {
+        if (marketLayout.find(m => m.id === 'orders' && m.visible)) { renderMarket(); return; }
+      } else {
+        ordersModule.querySelector('.panel-body').innerHTML = ordersTableMini(activeOrders);
+      }
+    } else if (ordersModule) {
+      renderMarket(); return;
     }
     // 更新指数卡片
     indices.forEach(idx => {
-      const card = document.querySelector(`.index-card[data-index="${idx.code}"]`);
+      const card = document.querySelector(`.index-card[data-ic="${idx.code}"]`);
       if (!card) return;
       const cls = DE.cls(idx.pct);
       const valCell = card.querySelector('[data-field="value"]');
@@ -1262,7 +1684,8 @@
     toggleWatch, removeWatch,
     openTrade, closeTrade, switchTrade, adjPrice, adjVol, setVol, submitTrade,
     cancelOrder, runScreener, resetScreener, showSector, clearSearch,
-    resetAccount, addCash
+    resetAccount, addCash,
+    openLayoutSettings, closeLayoutSettings, toggleModuleVisible, setModuleSize, toggleModuleCollapse, applyLayout, resetLayout
   };
 
   document.addEventListener('DOMContentLoaded', init);

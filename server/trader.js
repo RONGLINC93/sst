@@ -222,8 +222,17 @@ function addCash(amount) {
   return { success: true };
 }
 
+// ============ 行情布局 ============
+function getLayout() {
+  return storage.readJSON('layout.json', null);
+}
+function saveLayout(layout) {
+  storage.writeJSON('layout.json', layout);
+}
+
 module.exports = {
   getAccount, getHoldings, getOrders, getDeals, getWatchlist,
   calcAccount, submitTrade, cancelOrder,
-  toggleWatch, removeWatch, resetAccount, addCash
+  toggleWatch, removeWatch, resetAccount, addCash,
+  getLayout, saveLayout
 };

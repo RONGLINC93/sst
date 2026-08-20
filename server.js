@@ -101,6 +101,16 @@ app.get('/api/search', (req, res) => {
 
 // ============ 用户数据 API ============
 
+// 行情布局
+app.get('/api/layout', (req, res) => {
+  res.json({ success: true, data: trader.getLayout() });
+});
+app.post('/api/layout', (req, res) => {
+  const { layout } = req.body;
+  trader.saveLayout(layout);
+  res.json({ success: true });
+});
+
 // 账户
 app.get('/api/account', (req, res) => {
   res.json({ success: true, data: trader.calcAccount() });
