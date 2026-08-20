@@ -199,6 +199,6 @@ app.listen(PORT, () => {
   console.log('========================================');
   console.log('  模拟炒股服务器已启动');
   console.log('  访问地址: http://localhost:' + PORT);
-  console.log('  数据存储: ' + path.join(__dirname, '..', 'data'));
+  console.log('  数据存储: ' + path.join(__dirname, '..', '\\sst\\data'));
   console.log('========================================');
 });
