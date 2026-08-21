@@ -216,7 +216,9 @@ body {
   padding: 12px 16px; border-bottom: 1px solid var(--border);
   font-weight: 600; font-size: 13px;
 }
-.panel-body { padding: 16px; }
+.panel-header .more { margin-left: 8px; font-size: 12px; color: var(--accent-light); cursor: pointer; font-weight: 400; }
+.panel-header .more:hover { text-decoration: underline; }
+.panel-body { padding: 15px; }
 
 /* 按钮（现代渐变风） */
 .btn {
@@ -272,9 +274,8 @@ body {
 }
 .wc-slide {
   flex: 0 0 100%; min-width: 0;
-  background: rgba(26,34,54,0.4);
 }
-.wc-slide .wc-top { padding: 14px clamp(20px, 5vw, 56px); }
+.wc-slide .wc-top { padding: 15px clamp(10px, 5vw, 51px); }
 .wc-nav {
   position: absolute; top: 50%; transform: translateY(-50%);
   width: 36px; height: 36px; border-radius: 50%;
@@ -285,8 +286,8 @@ body {
   transition: all .2s; z-index: 5;
 }
 .wc-nav:hover { background: var(--accent-grad); border-color: transparent; }
-.wc-prev { left: 12px; }
-.wc-next { right: 12px; }
+.wc-prev { left: 5px; }
+.wc-next { right: 5px; }
 .wc-dots {
   display: flex; justify-content: center; gap: 6px;
   padding: 8px 0 14px;
@@ -296,8 +297,7 @@ body {
   background: var(--border3); cursor: pointer; transition: all .2s;
 }
 .wc-dot.active { background: var(--accent); width: 18px; border-radius: 3px; }
-.wc-top { display: flex; gap: 16px; cursor: pointer; }
-.wc-top:hover { background: rgba(255,255,255,0.02); }
+.wc-top { display: flex; gap: 16px;}
 .wc-info { flex: 0 0 210px; }
 .wc-name { font-size: 18px; font-weight: 700; }
 .wc-code { font-size: 12px; color: var(--text-dim3); font-weight: 400; }
@@ -365,9 +365,10 @@ canvas.watch-chart { display: block; width: 100%; height: 100%; }
 .ms-btn:last-child { border-right: 0; }
 .ms-btn:hover { background: rgba(99,168,237,0.1); color: var(--text); }
 .ms-btn.active { background: var(--accent); color: #fff; }
-/* 模块显示/隐藏按钮（X图标） */
-.col-btn { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 6px; margin-left: 8px; cursor: pointer; color: var(--text-dim); transition: all .15s; flex-shrink: 0; user-select: none; }
-.col-btn:hover { background: rgba(235,87,87,0.12); color: #f87171; }
+/* 模块显示/隐藏按钮（eye-off图标，hover标题栏才显示） */
+.col-btn { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 6px; margin-left: 8px; cursor: pointer; color: var(--text-dim); transition: all .15s; flex-shrink: 0; user-select: none; opacity: 0; pointer-events: none; }
+.market-module .panel-header:hover .col-btn { opacity: 1; pointer-events: auto; }
+.col-btn:hover { background: rgba(99,168,237,0.12); color: var(--accent); }
 .panel-header > *:not(.col-btn) { pointer-events: auto; }
 .index-card {
   background: rgba(26,34,54,0.6); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);

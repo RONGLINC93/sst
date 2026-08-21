@@ -153,14 +153,14 @@
   function renderMarketModule(item, ctx) {
     const id = item.id;
     const w = item.w || 'large';
-    const X_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
-    const hideBtn = `<span class="col-btn" onclick="event.stopPropagation();App.toggleModuleVisible('${id}',false)" title="隐藏模块">${X_SVG}</span>`;
+    const EYE_OFF_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+    const hideBtn = `<span class="col-btn" onclick="event.stopPropagation();App.toggleModuleVisible('${id}',false)" title="隐藏模块">${EYE_OFF_SVG}</span>`;
     const sw = `<span class="mod-size" onclick="event.stopPropagation()"><button type="button" class="ms-btn ${w === 'large' ? 'active' : ''}" onclick="App.setModuleSize('${id}','large')">大</button><button type="button" class="ms-btn ${w === 'medium' ? 'active' : ''}" onclick="App.setModuleSize('${id}','medium')">中</button><button type="button" class="ms-btn ${w === 'small' ? 'active' : ''}" onclick="App.setModuleSize('${id}','small')">小</button></span>`;
     switch (id) {
       case 'watchlist': {
         const watchlist = ctx.watchlist;
         if (!watchlist.length) return '';
-        return `<div class="panel-header"><span>我的自选</span>${sw}<span class="more" onclick="App.showView('watchlist')">管理自选 ></span>${hideBtn}</div>
+        return `<div class="panel-header"><span>我的自选</span><span class="more" onclick="App.showView('watchlist')">管理自选 ></span>${sw}${hideBtn}</div>
           <div class="panel-body">
             <div class="watchlist-carousel" id="watchlistCarousel">
               <div class="wc-track" id="wcTrack">${watchlist.map(s => `<div class="wc-slide" data-code="${s.code}">${renderWatchCard(s)}</div>`).join('')}</div>
@@ -173,13 +173,13 @@
       case 'holdings': {
         const holdings = ctx.holdings;
         if (!holdings.length) return '';
-        return `<div class="panel-header"><span>我的持仓</span>${sw}<span class="more" onclick="App.showView('portfolio')">全部持仓 ></span>${hideBtn}</div>
+        return `<div class="panel-header"><span>我的持仓</span><span class="more" onclick="App.showView('portfolio')">全部持仓 ></span>${sw}${hideBtn}</div>
           <div class="panel-body" style="padding:0">${holdingsTableMini(holdings, ctx.holdingsData.summary)}</div>`;
       }
       case 'orders': {
         const activeOrders = ctx.activeOrders;
         if (!activeOrders.length) return '';
-        return `<div class="panel-header"><span>当前委托</span>${sw}<span class="more" onclick="App.showView('orders')">全部委托 ></span>${hideBtn}</div>
+        return `<div class="panel-header"><span>当前委托</span><span class="more" onclick="App.showView('orders')">全部委托 ></span>${sw}${hideBtn}</div>
           <div class="panel-body" style="padding:0">${ordersTableMini(activeOrders)}</div>`;
       }
       case 'indices': {
@@ -200,19 +200,19 @@
       }
       case 'gainers': {
         const gainers = ctx.gainers;
-        return `<div class="panel-header"><span>涨幅榜</span>${sw}<span class="more" onclick="App.showView('rankings')">更多 ></span>${hideBtn}</div><div class="panel-body" style="padding:0">${stockTableMini(gainers)}</div>`;
+        return `<div class="panel-header"><span>涨幅榜</span><span class="more" onclick="App.showView('rankings')">更多 ></span>${sw}${hideBtn}</div><div class="panel-body" style="padding:0">${stockTableMini(gainers)}</div>`;
       }
       case 'losers': {
         const losers = ctx.losers;
-        return `<div class="panel-header"><span>跌幅榜</span>${sw}<span class="more" onclick="App.showView('rankings')">更多 ></span>${hideBtn}</div><div class="panel-body" style="padding:0">${stockTableMini(losers)}</div>`;
+        return `<div class="panel-header"><span>跌幅榜</span><span class="more" onclick="App.showView('rankings')">更多 ></span>${sw}${hideBtn}</div><div class="panel-body" style="padding:0">${stockTableMini(losers)}</div>`;
       }
       case 'amount': {
         const active = ctx.active;
-        return `<div class="panel-header"><span>成交额榜</span>${sw}<span class="more" onclick="App.showView('rankings')">更多 ></span>${hideBtn}</div><div class="panel-body" style="padding:0">${stockTableMini(active)}</div>`;
+        return `<div class="panel-header"><span>成交额榜</span><span class="more" onclick="App.showView('rankings')">更多 ></span>${sw}${hideBtn}</div><div class="panel-body" style="padding:0">${stockTableMini(active)}</div>`;
       }
       case 'sectors': {
         const hotSectors = ctx.hotSectors;
-        return `<div class="panel-header"><span>热门板块</span>${sw}<span class="more" onclick="App.showView('sectors')">更多 ></span>${hideBtn}</div><div class="panel-body"><div class="sector-grid">${hotSectors.map(sc => `
+        return `<div class="panel-header"><span>热门板块</span><span class="more" onclick="App.showView('sectors')">更多 ></span>${sw}${hideBtn}</div><div class="panel-body"><div class="sector-grid">${hotSectors.map(sc => `
           <div class="sector-card" data-sector="${sc.name}" onclick="App.showSector('${sc.name}')">
             <div class="sc-name">${esc(sc.name)}</div>
             <div class="sc-pct ${DE.cls(sc.avgPct)}" data-field="avgPct">${DE.fmtPct(sc.avgPct)}</div>
