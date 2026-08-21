@@ -212,8 +212,14 @@
       }
       case 'sectors': {
         const hotSectors = ctx.hotSectors;
-        return `<div class="panel-header"><span>热门板块</span><span class="more" onclick="App.showView('sectors')">更多 ></span>${sw}${hideBtn}</div><div class="panel-body"><div class="sector-grid">${hotSectors.map(sc => `
-          <div class="sector-card" data-sector="${sc.name}" onclick="App.showSector('${sc.name}')">
+        const secItem = marketLayout.find(x => x.id === 'sectors') || {};
+        const order = secItem.order || [];
+        const sorted = [...hotSectors].sort((a, b) => {
+          const ia = order.indexOf(a.name), ib = order.indexOf(b.name);
+          return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib);
+        });
+        return `<div class="panel-header"><span>热门板块</span><span class="more" onclick="App.showView('sectors')">更多 ></span>${sw}${hideBtn}</div><div class="panel-body"><div class="sector-grid">${sorted.map(sc => `
+          <div class="sector-card" data-sc="${sc.name}" data-sector="${sc.name}" draggable="true" onclick="App.showSector('${sc.name}')">
             <div class="sc-name">${esc(sc.name)}</div>
             <div class="sc-pct ${DE.cls(sc.avgPct)}" data-field="avgPct">${DE.fmtPct(sc.avgPct)}</div>
             <div class="sc-info"><span>${sc.count}只</span></div>
@@ -264,6 +270,7 @@
       // 绑定拖拽
       bindModuleDrag();
       bindIndexCardDrag();
+      bindSectorCardDrag();
     } catch (e) { $('#content').innerHTML = errorHtml(e); }
   }
 
@@ -287,8 +294,9 @@
         m.style.cursor = 'grab';
       }
       m.addEventListener('dragstart', e => {
-        // 指数卡片内部拖拽放行，交给 index-card 自己处理
-        if (m.dataset.module === 'indices' && e.target.classList && e.target.classList.contains('index-card')) return;
+        // 指数/板块卡片内部拖拽放行，交给卡片自己处理
+        const tgt = e.target;
+        if (tgt.classList && ((m.dataset.module === 'indices' && tgt.classList.contains('index-card')) || (m.dataset.module === 'sectors' && tgt.classList.contains('sector-card')))) return;
         // 只允许从标题栏发起的拖拽
         const isFromHeader = e.target === m || m.contains(e.target) && (e.target === header || header.contains(e.target));
         if (!isFromHeader) { e.preventDefault(); return; }
@@ -374,69 +382,268 @@
       });
     });
   }
+  // 板块卡片内部拖拽排序
+  let dragScName = null;
+  function bindSectorCardDrag() {
+    const cards = document.querySelectorAll('.market-module[data-module="sectors"] .sector-card');
+    cards.forEach(card => {
+      card.addEventListener('dragstart', e => {
+        dragScName = card.dataset.sc;
+        card.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        try { e.dataTransfer.setData('text/plain', dragScName); } catch (_) {}
+        e.stopPropagation();
+      });
+      card.addEventListener('dragend', () => {
+        card.classList.remove('dragging');
+        cards.forEach(x => x.classList.remove('drag-over'));
+        dragScName = null;
+      });
+      card.addEventListener('dragover', e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (card.dataset.sc !== dragScName) card.classList.add('drag-over');
+      });
+      card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
+      card.addEventListener('drop', e => {
+        e.preventDefault();
+        card.classList.remove('drag-over');
+        const targetName = card.dataset.sc;
+        if (!dragScName || dragScName === targetName) return;
+        const secItem = marketLayout.find(x => x.id === 'sectors');
+        if (!secItem) return;
+        const order = secItem.order || [];
+        const fromIdx = order.indexOf(dragScName);
+        const toIdx = order.indexOf(targetName);
+        if (fromIdx < 0 && toIdx < 0) {
+          // order 为空，用当前 DOM 顺序初始化
+          const curNames = Array.from(cards).map(c => c.dataset.sc);
+          const fi = curNames.indexOf(dragScName), ti = curNames.indexOf(targetName);
+          if (fi < 0 || ti < 0) return;
+          const [mv] = curNames.splice(fi, 1);
+          curNames.splice(ti, 0, mv);
+          secItem.order = curNames;
+        } else {
+          if (fromIdx < 0 || toIdx < 0) return;
+          const [mv] = order.splice(fromIdx, 1);
+          order.splice(toIdx, 0, mv);
+        }
+        saveMarketLayout();
+        renderMarket();
+      });
+    });
+  }
 
-  // ============ 布局设置面板 ============
+  // ============ 侧边栏拖拽排序 ============
+  let sidebarEdit = false;
+  let dragNavView = null;
+  let navHidden = new Set();
+  let navOrder = [];
+  const DEFAULT_NAV_ORDER = ['market', 'rankings', 'screener', 'sectors', 'watchlist', 'portfolio', 'orders', 'deals', 'account', 'news'];
+  const NAV_NAMES = { market: '行情', rankings: '排行', screener: '选股', sectors: '板块', watchlist: '自选', portfolio: '持仓', orders: '委托', deals: '成交', account: '账户', news: '资讯' };
+  const EYE_OFF_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+  const EYE_ON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+
+  async function initSidebarOrder() {
+    try {
+      const [savedOrder, savedHidden] = await Promise.all([DE.getNavOrder(), DE.getNavHidden()]);
+      if (Array.isArray(savedOrder) && savedOrder.length) {
+        navOrder = savedOrder;
+        applyNavOrder(navOrder);
+      } else {
+        navOrder = Array.from(document.querySelectorAll('.nav-item[data-view]')).map(it => it.dataset.view);
+      }
+      if (Array.isArray(savedHidden)) {
+        navHidden = new Set(savedHidden);
+        applyNavHidden();
+      }
+    } catch (e) { console.warn('加载侧边栏配置失败', e); }
+    addNavEyeSpans();
+    bindSidebarDrag();
+  }
+
+  function applyNavOrder(order) {
+    const sidebar = document.querySelector('.sidebar');
+    const items = Array.from(sidebar.querySelectorAll('.nav-item[data-view]'));
+    const editToggle = sidebar.querySelector('.nav-edit-toggle');
+    if (!editToggle) return;
+    // 按 order 顺序重排，未在 order 中的项追加到末尾（编辑按钮之前）
+    const ordered = order.map(v => items.find(it => it.dataset.view === v)).filter(Boolean);
+    items.forEach(it => { if (!order.includes(it.dataset.view)) ordered.push(it); });
+    ordered.forEach(it => sidebar.insertBefore(it, editToggle));
+  }
+
+  function applyNavHidden() {
+    document.querySelectorAll('.nav-item[data-view]').forEach(item => {
+      const isHidden = navHidden.has(item.dataset.view);
+      item.classList.toggle('nav-hidden', isHidden);
+      updateNavEye(item);
+    });
+  }
+
+  function addNavEyeSpans() {
+    document.querySelectorAll('.nav-item[data-view]').forEach(item => {
+      if (item.querySelector('.nav-eye')) return;
+      const eye = document.createElement('span');
+      eye.className = 'nav-eye';
+      eye.title = '隐藏/显示';
+      // 点击 eye 切换可见性，阻止冒泡避免触发 showView
+      eye.addEventListener('click', e => {
+        e.stopPropagation();
+        toggleNavHidden(item.dataset.view);
+      });
+      // mousedown 时临时移除 draggable，避免从 eye 区域误启动拖拽
+      eye.addEventListener('mousedown', e => {
+        e.stopPropagation();
+        item.removeAttribute('draggable');
+        const reAdd = () => {
+          if (sidebarEdit) item.setAttribute('draggable', 'true');
+          document.removeEventListener('mouseup', reAdd);
+        };
+        document.addEventListener('mouseup', reAdd);
+      });
+      item.appendChild(eye);
+      updateNavEye(item);
+    });
+  }
+
+  function updateNavEye(item) {
+    const eye = item.querySelector('.nav-eye');
+    if (!eye) return;
+    eye.innerHTML = navHidden.has(item.dataset.view) ? EYE_ON_SVG : EYE_OFF_SVG;
+  }
+
+  function toggleNavHidden(view) {
+    if (navHidden.has(view)) navHidden.delete(view);
+    else navHidden.add(view);
+    const item = document.querySelector(`.nav-item[data-view="${view}"]`);
+    if (item) {
+      item.classList.toggle('nav-hidden', navHidden.has(view));
+      updateNavEye(item);
+    }
+    DE.saveNavHidden(Array.from(navHidden)).catch(() => {});
+  }
+
+  function toggleSidebarEdit() {
+    sidebarEdit = !sidebarEdit;
+    const sidebar = document.querySelector('.sidebar');
+    const icon = $('#navEditIcon');
+    const text = $('#navEditText');
+    const toggle = $('#navEditToggle');
+    sidebar.classList.toggle('edit-mode', sidebarEdit);
+    toggle.classList.toggle('editing', sidebarEdit);
+    const navItems = sidebar.querySelectorAll('.nav-item[data-view]');
+    if (sidebarEdit) {
+      navItems.forEach(it => it.setAttribute('draggable', 'true'));
+      icon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>`;
+      text.textContent = '完成';
+    } else {
+      navItems.forEach(it => it.removeAttribute('draggable'));
+      icon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+      text.textContent = '编辑';
+      // 保存当前顺序
+      navOrder = Array.from(navItems).map(it => it.dataset.view);
+      DE.saveNavOrder(navOrder).catch(() => {});
+    }
+  }
+
+  function bindSidebarDrag() {
+    const sidebar = document.querySelector('.sidebar');
+    const items = sidebar.querySelectorAll('.nav-item[data-view]');
+    items.forEach(item => {
+      item.addEventListener('dragstart', e => {
+        if (!sidebarEdit) { e.preventDefault(); return; }
+        dragNavView = item.dataset.view;
+        item.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        try { e.dataTransfer.setData('text/plain', dragNavView); } catch (_) {}
+        e.stopPropagation();
+      });
+      item.addEventListener('dragend', () => {
+        item.classList.remove('dragging');
+        items.forEach(x => x.classList.remove('drag-over'));
+        dragNavView = null;
+      });
+      item.addEventListener('dragover', e => {
+        if (!sidebarEdit) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (item.dataset.view !== dragNavView) item.classList.add('drag-over');
+      });
+      item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
+      item.addEventListener('drop', e => {
+        if (!sidebarEdit) return;
+        e.preventDefault();
+        item.classList.remove('drag-over');
+        const targetView = item.dataset.view;
+        if (!dragNavView || dragNavView === targetView) return;
+        const allItems = Array.from(sidebar.querySelectorAll('.nav-item[data-view]'));
+        const fromIdx = allItems.findIndex(it => it.dataset.view === dragNavView);
+        const toIdx = allItems.findIndex(it => it.dataset.view === targetView);
+        if (fromIdx < 0 || toIdx < 0) return;
+        const [moved] = allItems.splice(fromIdx, 1);
+        allItems.splice(toIdx, 0, moved);
+        const editToggle = sidebar.querySelector('.nav-edit-toggle');
+        allItems.forEach(it => sidebar.insertBefore(it, editToggle));
+      });
+    });
+  }
+
+  // ============ 布局设置面板（草稿模式：点"应用"才生效）============
   let lsDragId = null;
+  let marketLayoutDraft = [];
+  let navOrderDraft = [];
+  let navHiddenDraft = new Set();
   async function openLayoutSettings() {
     await loadMarketLayout();
+    // 拷贝草稿
+    marketLayoutDraft = marketLayout.map(x => ({ ...x, order: x.order ? [...x.order] : undefined }));
+    navOrderDraft = [...navOrder];
+    navHiddenDraft = new Set(navHidden);
     renderLayoutList();
+    renderNavList();
     $('#layoutSettingsOverlay').classList.add('show');
   }
   function closeLayoutSettings() {
     $('#layoutSettingsOverlay').classList.remove('show');
   }
+  function switchLayoutTab(tab) {
+    document.querySelectorAll('.ls-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+    $('#lsList').style.display = tab === 'modules' ? '' : 'none';
+    $('#lsNavList').style.display = tab === 'nav' ? '' : 'none';
+  }
   function renderLayoutList() {
     const list = $('#lsList');
-    list.innerHTML = marketLayout.map(item => {
+    list.innerHTML = marketLayoutDraft.map(item => {
       const def = MODULE_DEFS.find(m => m.id === item.id);
       const w = item.w || 'large';
       const wOpts = [['large', '大'], ['medium', '中'], ['small', '小']];
-      const wHtml = wOpts.map(([v, lbl]) => `<button type="button" class="ls-size-btn ${w === v ? 'active' : ''}" onclick="App.setModuleSize('${item.id}','${v}')">${lbl}</button>`).join('');
+      const wHtml = wOpts.map(([v, lbl]) => `<button type="button" class="ls-size-btn ${w === v ? 'active' : ''}" onclick="App.setModuleSizeDraft('${item.id}','${v}')">${lbl}</button>`).join('');
       return `<div class="ls-item" data-id="${item.id}" draggable="true">
         <span class="ls-handle">⣿</span>
-        <label class="ls-label"><input type="checkbox" ${item.visible ? 'checked' : ''} onchange="App.toggleModuleVisible('${item.id}', this.checked)"><span>${def ? def.name : item.id}</span></label>
+        <label class="ls-label"><input type="checkbox" ${item.visible ? 'checked' : ''} onchange="App.setModuleVisibleDraft('${item.id}', this.checked)"><span>${def ? def.name : item.id}</span></label>
         <div class="ls-size" onclick="event.stopPropagation()"><span class="ls-size-label">宽</span><div class="ls-size-grp">${wHtml}</div></div>
       </div>`;
     }).join('');
-    // 绑定拖拽
-    list.querySelectorAll('.ls-item').forEach(item => {
-      item.addEventListener('dragstart', e => {
-        lsDragId = item.dataset.id;
-        item.classList.add('dragging');
-        e.dataTransfer.effectAllowed = 'move';
-        try { e.dataTransfer.setData('text/plain', lsDragId); } catch (_) {}
-      });
-      item.addEventListener('dragend', () => {
-        item.classList.remove('dragging');
-        list.querySelectorAll('.ls-item').forEach(x => x.classList.remove('drag-over'));
-      });
-      item.addEventListener('dragover', e => {
-        e.preventDefault();
-        if (item.dataset.id !== lsDragId) item.classList.add('drag-over');
-      });
-      item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
-      item.addEventListener('drop', e => {
-        e.preventDefault();
-        item.classList.remove('drag-over');
-        const targetId = item.dataset.id;
-        if (!lsDragId || lsDragId === targetId) return;
-        const fromIdx = marketLayout.findIndex(x => x.id === lsDragId);
-        const toIdx = marketLayout.findIndex(x => x.id === targetId);
-        if (fromIdx < 0 || toIdx < 0) return;
-        const [moved] = marketLayout.splice(fromIdx, 1);
-        marketLayout.splice(toIdx, 0, moved);
-        saveMarketLayout();
-        renderLayoutList();
-      });
-    });
+    bindLsDrag(list, 'id', () => lsDragId, v => lsDragId = v, marketLayoutDraft, renderLayoutList);
+  }
+  function setModuleSizeDraft(id, w) {
+    const item = marketLayoutDraft.find(x => x.id === id);
+    if (!item) return;
+    item.w = w;
+    renderLayoutList();
+  }
+  function setModuleVisibleDraft(id, visible) {
+    const item = marketLayoutDraft.find(x => x.id === id);
+    if (!item || item.visible === visible) return;
+    item.visible = visible;
+    renderLayoutList();
   }
   function setModuleSize(id, w) {
     const item = marketLayout.find(x => x.id === id);
     if (!item) return;
     item.w = w;
     saveMarketLayout();
-    renderLayoutList();
-    // 当前在行情页时立即重渲染
     if (currentView === 'market') renderMarket();
   }
   function toggleModuleVisible(id, visible) {
@@ -444,8 +651,6 @@
     if (!item || item.visible === visible) return;
     item.visible = visible;
     saveMarketLayout();
-    renderLayoutList();
-    // 当前在行情页，局部 DOM 移除/插入，不用整页重渲
     if (currentView !== 'market') return;
     const modEl = document.querySelector(`.market-module[data-module="${id}"]`);
     if (!visible && modEl) {
@@ -454,7 +659,7 @@
       modEl.style.transform = 'scale(.98)';
       setTimeout(() => { modEl.remove(); }, 140);
     } else if (visible) {
-      renderMarket(); // 插入需要重渲染按序占位
+      renderMarket();
     }
   }
   function toggleModuleCollapse(id) {
@@ -473,13 +678,83 @@
     }
   }
   function applyLayout() {
+    // 提交草稿到真实配置
+    marketLayout = marketLayoutDraft.map(x => ({ ...x, order: x.order ? [...x.order] : undefined }));
+    navOrder = [...navOrderDraft];
+    navHidden = new Set(navHiddenDraft);
+    saveMarketLayout();
+    DE.saveNavOrder(navOrder).catch(() => {});
+    DE.saveNavHidden(Array.from(navHidden)).catch(() => {});
+    applyNavOrder(navOrder);
+    applyNavHidden();
     closeLayoutSettings();
     if (currentView === 'market') renderMarket();
   }
   function resetLayout() {
-    marketLayout = DEFAULT_LAYOUT.map(x => ({ ...x, order: x.order ? [...x.order] : undefined, collapsed: false }));
-    saveMarketLayout();
+    // 只重置草稿，不立即生效，点"应用"才提交
+    marketLayoutDraft = DEFAULT_LAYOUT.map(x => ({ ...x, order: x.order ? [...x.order] : undefined, collapsed: false }));
+    navOrderDraft = [...DEFAULT_NAV_ORDER];
+    navHiddenDraft = new Set();
     renderLayoutList();
+    renderNavList();
+  }
+  // ============ 侧边栏布局设置列表 ============
+  let lsNavDragView = null;
+  function renderNavList() {
+    const list = $('#lsNavList');
+    if (!list) return;
+    // 确保所有默认导航项都在草稿中
+    DEFAULT_NAV_ORDER.forEach(v => { if (!navOrderDraft.includes(v)) navOrderDraft.push(v); });
+    list.innerHTML = navOrderDraft.map(view => {
+      const name = NAV_NAMES[view] || view;
+      const visible = !navHiddenDraft.has(view);
+      const navEl = document.querySelector(`.nav-item[data-view="${view}"] .nav-ico`);
+      const iconSvg = navEl ? navEl.innerHTML : '';
+      return `<div class="ls-item" data-view="${view}" draggable="true">
+        <span class="ls-handle">⣿</span>
+        <label class="ls-label"><input type="checkbox" ${visible ? 'checked' : ''} onchange="App.setNavVisibleDraft('${view}', this.checked)"><span class="ls-nav-ico">${iconSvg}</span><span>${name}</span></label>
+      </div>`;
+    }).join('');
+    bindLsDrag(list, 'view', () => lsNavDragView, v => lsNavDragView = v, navOrderDraft, renderNavList);
+  }
+  function setNavVisibleDraft(view, visible) {
+    if (visible) navHiddenDraft.delete(view);
+    else navHiddenDraft.add(view);
+    renderNavList();
+  }
+  // 列表拖拽通用绑定（marketLayoutDraft / navOrderDraft 共用）
+  function bindLsDrag(list, key, getCur, setCur, arr, onDrop) {
+    list.querySelectorAll('.ls-item').forEach(item => {
+      const curVal = item.dataset[key];
+      item.addEventListener('dragstart', e => {
+        setCur(curVal);
+        item.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        try { e.dataTransfer.setData('text/plain', curVal); } catch (_) {}
+      });
+      item.addEventListener('dragend', () => {
+        item.classList.remove('dragging');
+        list.querySelectorAll('.ls-item').forEach(x => x.classList.remove('drag-over'));
+      });
+      item.addEventListener('dragover', e => {
+        e.preventDefault();
+        if (item.dataset[key] !== getCur()) item.classList.add('drag-over');
+      });
+      item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
+      item.addEventListener('drop', e => {
+        e.preventDefault();
+        item.classList.remove('drag-over');
+        const target = item.dataset[key];
+        const cur = getCur();
+        if (!cur || cur === target) return;
+        const fromIdx = arr.findIndex(x => (typeof x === 'string' ? x : x.id) === cur);
+        const toIdx = arr.findIndex(x => (typeof x === 'string' ? x : x.id) === target);
+        if (fromIdx < 0 || toIdx < 0) return;
+        const [moved] = arr.splice(fromIdx, 1);
+        arr.splice(toIdx, 0, moved);
+        onDrop();
+      });
+    });
   }
 
   // ============ 自选股轮播 ============
@@ -1667,6 +1942,7 @@
     } catch (e) { console.error('初始化失败', e); }
     renderNewsTicker();
     setInterval(renderNewsTicker, 60000);
+    await initSidebarOrder();
     showView('market');
     updateClock();
     setInterval(updateClock, 1000);
@@ -1685,7 +1961,9 @@
     openTrade, closeTrade, switchTrade, adjPrice, adjVol, setVol, submitTrade,
     cancelOrder, runScreener, resetScreener, showSector, clearSearch,
     resetAccount, addCash,
-    openLayoutSettings, closeLayoutSettings, toggleModuleVisible, setModuleSize, toggleModuleCollapse, applyLayout, resetLayout
+    openLayoutSettings, closeLayoutSettings, switchLayoutTab, toggleModuleVisible, setModuleSize, toggleModuleCollapse, applyLayout, resetLayout,
+    setModuleVisibleDraft, setModuleSizeDraft, setNavVisibleDraft,
+    toggleSidebarEdit, toggleNavHidden
   };
 
   document.addEventListener('DOMContentLoaded', init);

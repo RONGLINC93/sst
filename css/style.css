@@ -191,6 +191,36 @@ body {
 }
 .nav-ico { display: inline-flex; align-items: center; justify-content: center; }
 .nav-ico svg { width: 22px; height: 22px; }
+/* 侧边栏编辑按钮（底部） */
+.nav-edit-toggle { margin-top: auto; border-top: 1px dashed var(--border2); border-radius: 0; padding-top: 12px; color: var(--text-dim2); }
+.nav-edit-toggle.editing { color: var(--accent-light); background: var(--accent-bg); }
+/* 侧边栏编辑模式：导航项可拖拽 */
+.sidebar.edit-mode .nav-item[data-view] { cursor: grab; }
+.sidebar.edit-mode .nav-item[data-view]:active { cursor: grabbing; }
+.sidebar.edit-mode .nav-item[data-view]::after {
+  content: ""; position: absolute; top: 4px; right: 4px;
+  width: 8px; height: 8px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cg fill='%2364748b'%3E%3Ccircle cx='3' cy='3' r='1'/%3E%3Ccircle cx='9' cy='3' r='1'/%3E%3Ccircle cx='3' cy='9' r='1'/%3E%3Ccircle cx='9' cy='9' r='1'/%3E%3C/g%3E%3C/svg%3E") no-repeat center / contain;
+  opacity: 0.6; transition: opacity .15s; pointer-events: none;
+}
+.sidebar.edit-mode .nav-item[data-view]:hover::after { opacity: 1; }
+.sidebar.edit-mode .nav-item[data-view].dragging { opacity: 0.4; }
+.sidebar.edit-mode .nav-item[data-view].drag-over { outline: 2px dashed var(--accent); outline-offset: -2px; }
+/* 隐藏的导航项：正常模式彻底隐藏，编辑模式半透明显示可恢复 */
+.nav-item.nav-hidden { display: none; }
+.sidebar.edit-mode .nav-item.nav-hidden { display: flex; opacity: 0.35; }
+.sidebar.edit-mode .nav-item.nav-hidden:hover { opacity: 0.65; }
+/* eye 图标：仅编辑模式显示，右下角（避开右上角的拖拽手柄） */
+.nav-eye {
+  position: absolute; bottom: 2px; right: 2px;
+  width: 16px; height: 16px;
+  display: none;
+  align-items: center; justify-content: center;
+  color: var(--text-dim2); cursor: pointer; z-index: 2;
+}
+.sidebar.edit-mode .nav-eye { display: inline-flex; }
+.nav-eye:hover { color: var(--accent-light); }
+.nav-eye svg { width: 14px; height: 14px; }
 
 .content { flex: 1; overflow-y: auto; padding: 20px; }
 
@@ -535,11 +565,17 @@ canvas.chart-canvas { display: block; width: 100%; height: 340px; }
 .ls-close { background: none; border: none; color: var(--text-dim); font-size: 22px; cursor: pointer; line-height: 1; padding: 0; }
 .ls-close:hover { color: var(--text); }
 .ls-tip { padding: 10px 20px; font-size: 12px; color: var(--text-dim2); }
-.ls-list { padding: 8px 20px; }
+.ls-tabs { display: flex; gap: 0; padding: 8px 20px 0; }
+.ls-tab { flex: 1; padding: 8px 0; border: none; background: transparent; color: var(--text-dim2); font-size: 13px; cursor: pointer; border-bottom: 2px solid transparent; transition: color .15s, border-color .15s; }
+.ls-tab.active { color: var(--accent-light); border-bottom-color: var(--accent); font-weight: 600; }
+.ls-tab:hover:not(.active) { color: var(--text-dim); }
+.ls-list { padding: 8px 20px; overflow-y: auto; max-height: 400px; }
 .ls-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 8px; background: rgba(26,34,54,0.4); cursor: grab; transition: border-color .15s; }
 .ls-item:hover { border-color: var(--border2); }
 .ls-item.dragging { opacity: 0.4; }
 .ls-item.drag-over { border-color: var(--accent); }
+.ls-nav-ico { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; color: var(--text-dim); flex-shrink: 0; }
+.ls-nav-ico svg { width: 18px; height: 18px; }
 .ls-handle { color: var(--text-dim2); cursor: grab; font-size: 16px; line-height: 1; user-select: none; }
 .ls-label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; min-width: 90px; }
 .ls-label input { cursor: pointer; }
@@ -582,6 +618,18 @@ canvas.chart-canvas { display: block; width: 100%; height: 340px; }
 .sector-card .sc-name { font-size: 14px; font-weight: 600; }
 .sector-card .sc-pct { font-size: 22px; font-weight: 700; margin: 8px 0; font-variant-numeric: tabular-nums; }
 .sector-card .sc-info { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-dim2); }
+/* 行情页热门板块卡片拖拽排序 */
+.market-module[data-module="sectors"] .sector-card[draggable="true"] { cursor: grab; }
+.market-module[data-module="sectors"] .sector-card[draggable="true"]:active { cursor: grabbing; }
+.market-module[data-module="sectors"] .sector-card.dragging { opacity: 0.4; }
+.market-module[data-module="sectors"] .sector-card.drag-over { outline: 2px dashed var(--accent); outline-offset: 2px; }
+.market-module[data-module="sectors"] .sector-card::after {
+  content: ""; position: absolute; top: 8px; right: 8px;
+  width: 10px; height: 10px; flex-shrink: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cg fill='%2364748b'%3E%3Ccircle cx='3' cy='3' r='1'/%3E%3Ccircle cx='9' cy='3' r='1'/%3E%3Ccircle cx='3' cy='9' r='1'/%3E%3Ccircle cx='9' cy='9' r='1'/%3E%3C/g%3E%3C/svg%3E") no-repeat center / contain;
+  opacity: 0; transition: opacity .15s; pointer-events: none; z-index: 1;
+}
+.market-module[data-module="sectors"] .sector-card:hover::after { opacity: 1; }
 
 /* ============ 账户 ============ */
 .account-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 16px; }

@@ -136,6 +136,24 @@
     await request('/layout', { method: 'POST', body: { layout } });
   }
 
+  // 侧边栏导航顺序
+  async function getNavOrder() {
+    const r = await request('/nav-order');
+    return r.data;
+  }
+  async function saveNavOrder(order) {
+    await request('/nav-order', { method: 'POST', body: { order } });
+  }
+
+  // 侧边栏导航隐藏
+  async function getNavHidden() {
+    const r = await request('/nav-hidden');
+    return r.data;
+  }
+  async function saveNavHidden(hidden) {
+    await request('/nav-hidden', { method: 'POST', body: { hidden } });
+  }
+
   // 工具函数（前端需要的格式化）
   const round2 = (n) => Math.round(n * 100) / 100;
   const fmtPct = (pct) => (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
@@ -152,6 +170,8 @@
     submitTrade, cancelOrder, toggleWatch, removeWatch, resetAccount, addCash,
     // 布局
     getLayout, saveLayout,
+    getNavOrder, saveNavOrder,
+    getNavHidden, saveNavHidden,
     // 工具
     round2, fmtPct, cls
   };

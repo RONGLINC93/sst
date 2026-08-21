@@ -44,6 +44,7 @@
         <a class="nav-item" data-view="deals" onclick="App.showView('deals')"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10l-4 4 4 4M17 14l4-4-4-4M3 14h18"/></svg></span><span>成交</span></a>
         <a class="nav-item" data-view="account" onclick="App.showView('account')"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></svg></span><span>账户</span></a>
         <a class="nav-item" data-view="news" onclick="App.showView('news')"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13a2 2 0 012 2v14H6a2 2 0 01-2-2V4zM19 8h2v11a2 2 0 01-2 2"/><path d="M8 8h7M8 12h7M8 16h4"/></svg></span><span>资讯</span></a>
+        <a class="nav-item nav-edit-toggle" id="navEditToggle" onclick="App.toggleSidebarEdit()" title="编辑侧边栏顺序"><span class="nav-ico" id="navEditIcon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span><span id="navEditText">编辑</span></a>
       </nav>
 
       <!-- 内容区 -->
@@ -70,15 +71,20 @@
       <div class="confirm-modal" id="confirmModal"></div>
     </div>
 
-    <!-- 行情布局设置弹窗 -->
+    <!-- 布局设置弹窗 -->
     <div class="layout-settings-overlay" id="layoutSettingsOverlay">
       <div class="layout-settings-modal">
         <div class="ls-header">
-          <span>行情布局设置</span>
+          <span>布局设置</span>
           <button class="ls-close" onclick="App.closeLayoutSettings()">×</button>
         </div>
+        <div class="ls-tabs">
+          <button class="ls-tab active" data-tab="nav" onclick="App.switchLayoutTab('nav')">侧边栏导航</button>
+          <button class="ls-tab" data-tab="modules" onclick="App.switchLayoutTab('modules')">行情模块</button>          
+        </div>
         <div class="ls-tip">拖拽调整顺序，勾选控制显示</div>
-        <div class="ls-list" id="lsList"></div>
+        <div class="ls-list" id="lsList" style="display:none"></div>
+        <div class="ls-list" id="lsNavList"></div>
         <div class="ls-actions">
           <button class="btn" onclick="App.resetLayout()">恢复默认</button>
           <button class="btn btn-primary" onclick="App.applyLayout()">应用</button>

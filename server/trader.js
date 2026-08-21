@@ -230,9 +230,27 @@ function saveLayout(layout) {
   storage.writeJSON('layout.json', layout);
 }
 
+// ============ 侧边栏导航顺序 ============
+function getNavOrder() {
+  return storage.readJSON('nav-order.json', null);
+}
+function saveNavOrder(order) {
+  storage.writeJSON('nav-order.json', order);
+}
+
+// ============ 侧边栏导航隐藏 ============
+function getNavHidden() {
+  return storage.readJSON('nav-hidden.json', null);
+}
+function saveNavHidden(hidden) {
+  storage.writeJSON('nav-hidden.json', hidden);
+}
+
 module.exports = {
   getAccount, getHoldings, getOrders, getDeals, getWatchlist,
   calcAccount, submitTrade, cancelOrder,
   toggleWatch, removeWatch, resetAccount, addCash,
-  getLayout, saveLayout
+  getLayout, saveLayout,
+  getNavOrder, saveNavOrder,
+  getNavHidden, saveNavHidden
 };

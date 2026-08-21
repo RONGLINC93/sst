@@ -111,6 +111,26 @@ app.post('/api/layout', (req, res) => {
   res.json({ success: true });
 });
 
+// 侧边栏导航顺序
+app.get('/api/nav-order', (req, res) => {
+  res.json({ success: true, data: trader.getNavOrder() });
+});
+app.post('/api/nav-order', (req, res) => {
+  const { order } = req.body;
+  trader.saveNavOrder(order);
+  res.json({ success: true });
+});
+
+// 侧边栏导航隐藏
+app.get('/api/nav-hidden', (req, res) => {
+  res.json({ success: true, data: trader.getNavHidden() });
+});
+app.post('/api/nav-hidden', (req, res) => {
+  const { hidden } = req.body;
+  trader.saveNavHidden(hidden);
+  res.json({ success: true });
+});
+
 // 账户
 app.get('/api/account', (req, res) => {
   res.json({ success: true, data: trader.calcAccount() });
