@@ -271,6 +271,8 @@
       bindModuleDrag();
       bindIndexCardDrag();
       bindSectorCardDrag();
+      // 编辑模式下重新渲染后恢复 edit-mode 类
+      if (marketEdit) document.querySelector('.market-modules')?.classList.add('edit-mode');
     } catch (e) { $('#content').innerHTML = errorHtml(e); }
   }
 
@@ -282,18 +284,16 @@
       // 只有标题栏可拖，整个模块作为拖拽影像
       const header = m.querySelector('.panel-header') || (m.dataset.module === 'indices' ? m.querySelector('.index-cards') : m);
       if (header !== m) {
-        header.style.cursor = 'grab';
-        header.addEventListener('mousedown', () => { m.setAttribute('draggable', 'true'); });
+        header.addEventListener('mousedown', () => { if (marketEdit) m.setAttribute('draggable', 'true'); });
         header.addEventListener('mouseup', () => { m.removeAttribute('draggable'); });
         header.addEventListener('mouseleave', () => { m.removeAttribute('draggable'); });
         // 点击/输入不触发拖拽
         header.addEventListener('click', e => {
           if (e.target.closest('input, button, .more, a')) m.removeAttribute('draggable');
         });
-      } else {
-        m.style.cursor = 'grab';
       }
       m.addEventListener('dragstart', e => {
+        if (!marketEdit) { e.preventDefault(); return; }
         // 指数/板块卡片内部拖拽放行，交给卡片自己处理
         const tgt = e.target;
         if (tgt.classList && ((m.dataset.module === 'indices' && tgt.classList.contains('index-card')) || (m.dataset.module === 'sectors' && tgt.classList.contains('sector-card')))) return;
@@ -337,6 +337,7 @@
     const cards = document.querySelectorAll('.market-module[data-module="indices"] .index-card');
     cards.forEach(card => {
       card.addEventListener('dragstart', e => {
+        if (!marketEdit) { e.preventDefault(); return; }
         dragIcCode = card.dataset.ic;
         card.classList.add('dragging');
         e.dataTransfer.effectAllowed = 'move';
@@ -349,12 +350,14 @@
         dragIcCode = null;
       });
       card.addEventListener('dragover', e => {
+        if (!marketEdit) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
         if (card.dataset.ic !== dragIcCode) card.classList.add('drag-over');
       });
       card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
       card.addEventListener('drop', e => {
+        if (!marketEdit) return;
         e.preventDefault();
         card.classList.remove('drag-over');
         const targetCode = card.dataset.ic;
@@ -388,6 +391,7 @@
     const cards = document.querySelectorAll('.market-module[data-module="sectors"] .sector-card');
     cards.forEach(card => {
       card.addEventListener('dragstart', e => {
+        if (!marketEdit) { e.preventDefault(); return; }
         dragScName = card.dataset.sc;
         card.classList.add('dragging');
         e.dataTransfer.effectAllowed = 'move';
@@ -400,12 +404,14 @@
         dragScName = null;
       });
       card.addEventListener('dragover', e => {
+        if (!marketEdit) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
         if (card.dataset.sc !== dragScName) card.classList.add('drag-over');
       });
       card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
       card.addEventListener('drop', e => {
+        if (!marketEdit) return;
         e.preventDefault();
         card.classList.remove('drag-over');
         const targetName = card.dataset.sc;
@@ -435,7 +441,7 @@
   }
 
   // ============ 侧边栏拖拽排序 ============
-  let sidebarEdit = false;
+  let marketEdit = false;
   let dragNavView = null;
   let navHidden = new Set();
   let navOrder = [];
@@ -465,12 +471,10 @@
   function applyNavOrder(order) {
     const sidebar = document.querySelector('.sidebar');
     const items = Array.from(sidebar.querySelectorAll('.nav-item[data-view]'));
-    const editToggle = sidebar.querySelector('.nav-edit-toggle');
-    if (!editToggle) return;
-    // 按 order 顺序重排，未在 order 中的项追加到末尾（编辑按钮之前）
+    // 按 order 顺序重排，未在 order 中的项追加到末尾
     const ordered = order.map(v => items.find(it => it.dataset.view === v)).filter(Boolean);
     items.forEach(it => { if (!order.includes(it.dataset.view)) ordered.push(it); });
-    ordered.forEach(it => sidebar.insertBefore(it, editToggle));
+    ordered.forEach(it => sidebar.appendChild(it));
   }
 
   function applyNavHidden() {
@@ -497,7 +501,7 @@
         e.stopPropagation();
         item.removeAttribute('draggable');
         const reAdd = () => {
-          if (sidebarEdit) item.setAttribute('draggable', 'true');
+          if (marketEdit) item.setAttribute('draggable', 'true');
           document.removeEventListener('mouseup', reAdd);
         };
         document.addEventListener('mouseup', reAdd);
@@ -524,24 +528,23 @@
     DE.saveNavHidden(Array.from(navHidden)).catch(() => {});
   }
 
-  function toggleSidebarEdit() {
-    sidebarEdit = !sidebarEdit;
+  function toggleMarketEdit() {
+    marketEdit = !marketEdit;
+    const icon = $('#marketEditIcon');
+    const toggle = $('#marketEditBtn');
+    const grid = document.querySelector('.market-modules');
     const sidebar = document.querySelector('.sidebar');
-    const icon = $('#navEditIcon');
-    const text = $('#navEditText');
-    const toggle = $('#navEditToggle');
-    sidebar.classList.toggle('edit-mode', sidebarEdit);
-    toggle.classList.toggle('editing', sidebarEdit);
-    const navItems = sidebar.querySelectorAll('.nav-item[data-view]');
-    if (sidebarEdit) {
+    if (grid) grid.classList.toggle('edit-mode', marketEdit);
+    if (sidebar) sidebar.classList.toggle('edit-mode', marketEdit);
+    if (toggle) toggle.classList.toggle('active', marketEdit);
+    const navItems = sidebar ? sidebar.querySelectorAll('.nav-item[data-view]') : [];
+    if (marketEdit) {
       navItems.forEach(it => it.setAttribute('draggable', 'true'));
-      icon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>`;
-      text.textContent = '完成';
+      if (icon) icon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M20 6L9 17l-5-5"/></svg>`;
     } else {
       navItems.forEach(it => it.removeAttribute('draggable'));
-      icon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
-      text.textContent = '编辑';
-      // 保存当前顺序
+      if (icon) icon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+      // 保存侧边栏顺序
       navOrder = Array.from(navItems).map(it => it.dataset.view);
       DE.saveNavOrder(navOrder).catch(() => {});
     }
@@ -552,7 +555,7 @@
     const items = sidebar.querySelectorAll('.nav-item[data-view]');
     items.forEach(item => {
       item.addEventListener('dragstart', e => {
-        if (!sidebarEdit) { e.preventDefault(); return; }
+        if (!marketEdit) { e.preventDefault(); return; }
         dragNavView = item.dataset.view;
         item.classList.add('dragging');
         e.dataTransfer.effectAllowed = 'move';
@@ -565,14 +568,14 @@
         dragNavView = null;
       });
       item.addEventListener('dragover', e => {
-        if (!sidebarEdit) return;
+        if (!marketEdit) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
         if (item.dataset.view !== dragNavView) item.classList.add('drag-over');
       });
       item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
       item.addEventListener('drop', e => {
-        if (!sidebarEdit) return;
+        if (!marketEdit) return;
         e.preventDefault();
         item.classList.remove('drag-over');
         const targetView = item.dataset.view;
@@ -583,8 +586,7 @@
         if (fromIdx < 0 || toIdx < 0) return;
         const [moved] = allItems.splice(fromIdx, 1);
         allItems.splice(toIdx, 0, moved);
-        const editToggle = sidebar.querySelector('.nav-edit-toggle');
-        allItems.forEach(it => sidebar.insertBefore(it, editToggle));
+        allItems.forEach(it => sidebar.appendChild(it));
       });
     });
   }
@@ -1963,7 +1965,7 @@
     resetAccount, addCash,
     openLayoutSettings, closeLayoutSettings, switchLayoutTab, toggleModuleVisible, setModuleSize, toggleModuleCollapse, applyLayout, resetLayout,
     setModuleVisibleDraft, setModuleSizeDraft, setNavVisibleDraft,
-    toggleSidebarEdit, toggleNavHidden
+    toggleMarketEdit, toggleNavHidden
   };
 
   document.addEventListener('DOMContentLoaded', init);

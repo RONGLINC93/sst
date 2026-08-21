@@ -192,8 +192,8 @@ body {
 .nav-ico { display: inline-flex; align-items: center; justify-content: center; }
 .nav-ico svg { width: 22px; height: 22px; }
 /* 侧边栏编辑按钮（底部） */
-.nav-edit-toggle { margin-top: auto; border-top: 1px dashed var(--border2); border-radius: 0; padding-top: 12px; color: var(--text-dim2); }
-.nav-edit-toggle.editing { color: var(--accent-light); background: var(--accent-bg); }
+/* 顶栏编辑按钮激活态 */
+.icon-btn.active { color: var(--accent-light); background: var(--accent-bg); }
 /* 侧边栏编辑模式：导航项可拖拽 */
 .sidebar.edit-mode .nav-item[data-view] { cursor: grab; }
 .sidebar.edit-mode .nav-item[data-view]:active { cursor: grabbing; }
@@ -371,34 +371,35 @@ canvas.watch-chart { display: block; width: 100%; height: 100%; }
   .market-modules { grid-template-columns: 1fr; }
   .market-module.mod-w-large, .market-module.mod-w-medium, .market-module.mod-w-small { grid-column: 1 / -1; }
 }
-/* 标题栏可拖拽提示 */
-.market-module .panel-header { cursor: grab; }
-.market-module .panel-header:active { cursor: grabbing; }
+/* 标题栏可拖拽提示 - 仅编辑模式 */
 .market-module .panel-header > span:first-child { display: inline-flex; align-items: center; gap: 6px; }
 .market-module .panel-header > span:first-child::before {
   content: ""; width: 12px; height: 12px; flex-shrink: 0;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cg fill='%2364748b'%3E%3Ccircle cx='3' cy='3' r='1'/%3E%3Ccircle cx='9' cy='3' r='1'/%3E%3Ccircle cx='3' cy='9' r='1'/%3E%3Ccircle cx='9' cy='9' r='1'/%3E%3C/g%3E%3C/svg%3E") no-repeat center / contain;
-  opacity: 0.5; transition: opacity .15s;
+  opacity: 0; transition: opacity .15s;
 }
-.market-module .panel-header:hover > span:first-child::before { opacity: 1; }
+.market-modules.edit-mode .market-module .panel-header > span:first-child::before { opacity: 0.5; }
+.market-modules.edit-mode .market-module .panel-header:hover > span:first-child::before { opacity: 1; }
 .market-module[data-module="indices"] .index-cards { margin: 0; }
-.market-module[data-module="indices"] .index-card[draggable="true"] { cursor: grab; }
-.market-module[data-module="indices"] .index-card[draggable="true"]:active { cursor: grabbing; }
+.market-modules.edit-mode .market-module[data-module="indices"] .index-card { cursor: grab; }
+.market-modules.edit-mode .market-module[data-module="indices"] .index-card:active { cursor: grabbing; }
 .market-module[data-module="indices"] .index-card.dragging { opacity: 0.4; }
 .market-module[data-module="indices"] .index-card.drag-over { outline: 2px dashed var(--accent); outline-offset: 2px; }
 /* 抵消 .panel + .panel 在 .market-module 间的双倍间距 */
 .market-module.panel { margin-top: 0; }
-/* 标题栏尺寸切换按钮 - 仅 hover 时显示 */
+/* 标题栏尺寸切换按钮 - 仅编辑模式显示 */
+.market-modules.edit-mode .market-module .panel-header { cursor: grab; }
+.market-modules.edit-mode .market-module .panel-header:active { cursor: grabbing; }
 .mod-size { display: inline-flex; margin-left: auto; margin-right: 8px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; opacity: 0; transition: opacity .15s; pointer-events: none; }
-.market-module .panel-header:hover .mod-size { opacity: 1; pointer-events: auto; }
+.market-modules.edit-mode .mod-size { opacity: 1; pointer-events: auto; }
 .ms-btn { background: transparent; color: var(--text-dim2); border: 0; padding: 3px 9px; font-size: 11px; cursor: pointer; transition: all .15s; border-right: 1px solid var(--border); line-height: 1.4; }
 .ms-btn:last-child { border-right: 0; }
 .ms-btn:hover { background: rgba(99,168,237,0.1); color: var(--text); }
 .ms-btn.active { background: var(--accent); color: #fff; }
-/* 模块显示/隐藏按钮（eye-off图标，hover标题栏才显示） */
+/* 模块显示/隐藏按钮（eye-off图标，编辑模式才显示） */
 .col-btn { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 6px; margin-left: 8px; cursor: pointer; color: var(--text-dim); transition: all .15s; flex-shrink: 0; user-select: none; opacity: 0; pointer-events: none; }
-.market-module .panel-header:hover .col-btn { opacity: 1; pointer-events: auto; }
-.col-btn:hover { background: rgba(99,168,237,0.12); color: var(--accent); }
+  .market-modules.edit-mode .col-btn { opacity: 1; pointer-events: auto; }
+  .col-btn:hover { background: rgba(99,168,237,0.12); color: var(--accent); }
 .panel-header > *:not(.col-btn) { pointer-events: auto; }
 .index-card {
   background: rgba(26,34,54,0.6); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
@@ -418,7 +419,8 @@ canvas.watch-chart { display: block; width: 100%; height: 100%; }
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cg fill='%2364748b'%3E%3Ccircle cx='3' cy='3' r='1'/%3E%3Ccircle cx='9' cy='3' r='1'/%3E%3Ccircle cx='3' cy='9' r='1'/%3E%3Ccircle cx='9' cy='9' r='1'/%3E%3C/g%3E%3C/svg%3E") no-repeat center / contain;
   opacity: 0; transition: opacity .15s; pointer-events: none; z-index: 1;
 }
-.index-card:hover::after { opacity: 1; }
+.market-modules.edit-mode .index-card::after { opacity: 0.6; }
+.market-modules.edit-mode .index-card:hover::after { opacity: 1; }
 .index-card .ic-val { font-size: 20px; font-weight: 700; margin: 4px 0; font-variant-numeric: tabular-nums; }
 .index-card .ic-pct { font-size: 12px; font-variant-numeric: tabular-nums; }
 
@@ -619,8 +621,8 @@ canvas.chart-canvas { display: block; width: 100%; height: 340px; }
 .sector-card .sc-pct { font-size: 22px; font-weight: 700; margin: 8px 0; font-variant-numeric: tabular-nums; }
 .sector-card .sc-info { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-dim2); }
 /* 行情页热门板块卡片拖拽排序 */
-.market-module[data-module="sectors"] .sector-card[draggable="true"] { cursor: grab; }
-.market-module[data-module="sectors"] .sector-card[draggable="true"]:active { cursor: grabbing; }
+.market-modules.edit-mode .market-module[data-module="sectors"] .sector-card { cursor: grab; }
+.market-modules.edit-mode .market-module[data-module="sectors"] .sector-card:active { cursor: grabbing; }
 .market-module[data-module="sectors"] .sector-card.dragging { opacity: 0.4; }
 .market-module[data-module="sectors"] .sector-card.drag-over { outline: 2px dashed var(--accent); outline-offset: 2px; }
 .market-module[data-module="sectors"] .sector-card::after {
@@ -629,7 +631,8 @@ canvas.chart-canvas { display: block; width: 100%; height: 340px; }
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cg fill='%2364748b'%3E%3Ccircle cx='3' cy='3' r='1'/%3E%3Ccircle cx='9' cy='3' r='1'/%3E%3Ccircle cx='3' cy='9' r='1'/%3E%3Ccircle cx='9' cy='9' r='1'/%3E%3C/g%3E%3C/svg%3E") no-repeat center / contain;
   opacity: 0; transition: opacity .15s; pointer-events: none; z-index: 1;
 }
-.market-module[data-module="sectors"] .sector-card:hover::after { opacity: 1; }
+.market-modules.edit-mode .market-module[data-module="sectors"] .sector-card::after { opacity: 0.6; }
+.market-modules.edit-mode .market-module[data-module="sectors"] .sector-card:hover::after { opacity: 1; }
 
 /* ============ 账户 ============ */
 .account-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 16px; }
