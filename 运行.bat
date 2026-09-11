@@ -7,7 +7,7 @@ echo   启动模拟炒股服务器
 echo ========================================
 echo.
 
-start "" http://localhost:9527
+start "" http://localhost:3002
 node server.js
 
 echo.

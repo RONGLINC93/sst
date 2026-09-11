@@ -1,0 +1,7 @@
+{
+  "defaults": {
+    "run-as": "package"
+  },
+  "username": "sst-stock-simulator",
+  "groupname": "sst-stock-simulator"
+}

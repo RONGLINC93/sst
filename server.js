@@ -9,7 +9,7 @@ const engine = require('./server/engine');
 const trader = require('./server/trader');
 
 const app = express();
-const PORT = process.env.PORT || 9527;
+const PORT = process.env.PORT || 3002;
 
 app.use(express.json());
 app.use(express.static(__dirname));

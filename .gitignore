@@ -3,3 +3,7 @@
 
 # 运行时数据（首次启动会自动生成）
 data/
+
+# fpk 打包产物与打包时生成的程序目录（由 打包fpk.bat / fnos/build-fpk.sh 生成）
+fpk/
+fnos/*/app/server/

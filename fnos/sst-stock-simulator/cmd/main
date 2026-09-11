@@ -1,0 +1,145 @@
+#!/bin/bash
+# ============================================================================
+# 模拟炒股终端 · 生命周期脚本
+#   start  : 启动服务（成功返回 0，失败返回 1 并写入 TRIM_TEMP_LOGFILE）
+#   stop   : 停止服务（成功返回 0）
+#   status : 运行中返回 0，未运行返回 3
+# ============================================================================
+set -u
+
+# 程序本体：app/server/ 会被解压到 TRIM_APPDEST 下
+APP_DIR="${TRIM_APPDEST}/server"
+ENTRY="${APP_DIR}/server.js"
+
+# 持久化目录：var 在升级 / 卸载时都会被保留
+PKG_VAR="${TRIM_PKGVAR}"
+DATA_DIR="${PKG_VAR}/data"
+LOG_FILE="${PKG_VAR}/app.log"
+PID_FILE="${PKG_VAR}/app.pid"
+
+# 服务端口：来自 manifest 的 service_port
+PORT="${TRIM_SERVICE_PORT:-3002}"
+
+# Node.js 运行时由 install_dep_apps = nodejs_v20 提供
+NODE_DIR="/var/apps/nodejs_v20/target/bin"
+NODE_BIN="${NODE_DIR}/node"
+export PATH="${NODE_DIR}:${PATH}"
+export TZ="${TZ:-Asia/Shanghai}"
+
+log() {
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "${LOG_FILE}" 2>/dev/null
+}
+
+fail() {
+  # V1.1.8+ 会把该文件内容弹窗展示给用户
+  if [ -n "${TRIM_TEMP_LOGFILE:-}" ]; then
+    echo "$*" > "${TRIM_TEMP_LOGFILE}" 2>/dev/null
+  fi
+  log "ERROR: $*"
+  exit 1
+}
+
+# 通过完整命令行匹配进程：无论是本脚本启动的，还是应用内「重启服务」自拉起的新进程
+list_pids() {
+  pgrep -f "${ENTRY}" 2>/dev/null
+}
+
+is_running() {
+  [ -n "$(list_pids)" ]
+}
+
+# 把数据目录指向持久化目录（程序目录在升级时会被覆盖）
+prepare_data() {
+  mkdir -p "${DATA_DIR}" || return 1
+  local link="${APP_DIR}/data"
+  if [ -L "${link}" ]; then
+    return 0
+  fi
+  if [ -d "${link}" ]; then
+    # 兼容旧版本把数据直接写在程序目录的情况，先迁移再建软链
+    cp -rf "${link}/." "${DATA_DIR}/" 2>/dev/null
+    rm -rf "${link}"
+  fi
+  ln -s "${DATA_DIR}" "${link}" 2>/dev/null || log "警告：数据目录软链创建失败，数据将写在程序目录"
+  return 0
+}
+
+start_process() {
+  if is_running; then
+    log "服务已在运行，忽略本次启动请求"
+    return 0
+  fi
+
+  [ -x "${NODE_BIN}" ] || NODE_BIN="$(command -v node 2>/dev/null || true)"
+  [ -n "${NODE_BIN}" ] && [ -x "${NODE_BIN}" ] || fail "未找到 Node.js 运行时（nodejs_v20），请先在应用中心安装"
+  [ -f "${ENTRY}" ] || fail "程序文件缺失：${ENTRY}"
+
+  prepare_data || fail "无法初始化数据目录 ${DATA_DIR}"
+
+  cd "${APP_DIR}" || fail "无法进入程序目录 ${APP_DIR}"
+  PORT="${PORT}" nohup "${NODE_BIN}" "${ENTRY}" >> "${LOG_FILE}" 2>&1 &
+  echo $! > "${PID_FILE}"
+
+  # 等待端口服务起来（最多 10 秒）
+  local i=0
+  while [ ${i} -lt 10 ]; do
+    sleep 1
+    if is_running; then
+      log "启动成功：http://127.0.0.1:${PORT}"
+      return 0
+    fi
+    i=$((i + 1))
+  done
+  fail "服务启动后立即退出，请查看日志：${LOG_FILE}"
+}
+
+stop_process() {
+  local pids i
+  pids="$(list_pids)"
+  if [ -z "${pids}" ]; then
+    rm -f "${PID_FILE}"
+    return 0
+  fi
+
+  log "正在停止服务：${pids}"
+  kill -TERM ${pids} 2>/dev/null
+
+  i=0
+  while [ ${i} -lt 10 ]; do
+    is_running || break
+    sleep 1
+    i=$((i + 1))
+  done
+
+  if is_running; then
+    log "优雅停止超时，强制结束"
+    kill -KILL $(list_pids) 2>/dev/null
+    sleep 1
+  fi
+
+  rm -f "${PID_FILE}"
+  log "服务已停止"
+  return 0
+}
+
+case "$1" in
+  start)
+    start_process
+    exit $?
+    ;;
+  stop)
+    stop_process
+    exit $?
+    ;;
+  status)
+    if is_running; then
+      exit 0
+    else
+      exit 3
+    fi
+    ;;
+  *)
+    echo "用法: $0 {start|stop|status}" >&2
+    exit 1
+    ;;
+esac

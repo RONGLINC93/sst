@@ -1,0 +1,17 @@
+#!/bin/bash
+# 升级后：程序目录被重新解压，重新建立数据目录软链，数据本身保留
+LOG_FILE="${TRIM_PKGVAR:-/tmp}/install.log"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] upgrade_callback ${TRIM_OLD_APPVER:-unknown} -> ${TRIM_APPVER:-unknown}" >> "${LOG_FILE}" 2>/dev/null
+
+DATA_DIR="${TRIM_PKGVAR}/data"
+mkdir -p "${DATA_DIR}"
+
+LINK="${TRIM_APPDEST}/server/data"
+if [ ! -L "${LINK}" ]; then
+  if [ -d "${LINK}" ]; then
+    cp -rf "${LINK}/." "${DATA_DIR}/" 2>/dev/null
+    rm -rf "${LINK}"
+  fi
+  ln -s "${DATA_DIR}" "${LINK}" 2>/dev/null
+fi
+exit 0

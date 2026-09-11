@@ -1,0 +1,19 @@
+#!/bin/bash
+# 安装后：创建持久化数据目录，并把程序目录下的 data 软链到该目录
+LOG_FILE="${TRIM_PKGVAR:-/tmp}/install.log"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] install_callback ${TRIM_APPNAME:-unknown} ${TRIM_APPVER:-unknown}" >> "${LOG_FILE}" 2>/dev/null
+
+DATA_DIR="${TRIM_PKGVAR}/data"
+mkdir -p "${DATA_DIR}"
+
+LINK="${TRIM_APPDEST}/server/data"
+if [ ! -L "${LINK}" ]; then
+  if [ -d "${LINK}" ]; then
+    cp -rf "${LINK}/." "${DATA_DIR}/" 2>/dev/null
+    rm -rf "${LINK}"
+  fi
+  ln -s "${DATA_DIR}" "${LINK}" 2>/dev/null
+fi
+
+chown -R "${TRIM_USERNAME:-}:${TRIM_GROUPNAME:-}" "${TRIM_PKGVAR}" 2>/dev/null
+exit 0

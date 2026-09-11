@@ -59,7 +59,7 @@ sst/
 ```bash
 npm install
 npm start
-# 打开 http://localhost:9527
+# 打开 http://localhost:3002
 ```
 
 ## API 速览
@@ -95,7 +95,7 @@ npm start
 
 ## 端口
 
-默认 `9527`，可通过环境变量 `PORT` 修改：
+默认 `3002`，可通过环境变量 `PORT` 修改：
 
 ```bash
 PORT=8080 npm start

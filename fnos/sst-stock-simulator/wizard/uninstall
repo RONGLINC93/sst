@@ -1,0 +1,30 @@
+[
+  {
+    "stepTitle": "卸载模拟炒股终端",
+    "items": [
+      {
+        "type": "tips",
+        "helpText": "卸载会移除程序文件。账户、持仓、委托、成交、自选与布局设置等数据存放在应用数据目录中，请选择处理方式："
+      },
+      {
+        "type": "radio",
+        "field": "wizard_data_action",
+        "label": "数据处理",
+        "initValue": "keep",
+        "options": [
+          {
+            "label": "保留数据（推荐）—— 重新安装后可直接继续使用",
+            "value": "keep"
+          },
+          {
+            "label": "删除全部数据 —— 账户、持仓、委托、成交与自选一并清除，不可恢复",
+            "value": "delete"
+          }
+        ],
+        "rules": [
+          { "required": true, "message": "请选择数据处理方式" }
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,17 @@
+appname               = sst-stock-simulator
+version               = 1.0.0
+display_name          = 模拟炒股终端
+desc                  = 纯 Node.js 模拟炒股终端，覆盖沪深行情、分时与 K 线、五档盘口、成交明细、买卖委托、持仓盈亏、自选股与资讯，数据以 JSON 本地持久化，开箱即用。
+platform              = all
+source                = thirdparty
+maintainer            = RONGLINC93
+maintainer_url        = https://github.com/RONGLINC93/sst
+distributor           = RONGLINC93
+distributor_url       = https://github.com/RONGLINC93/sst
+os_min_version        = 1.1.8
+desktop_uidir         = ui
+desktop_applaunchname = sst-stock-simulator.main
+service_port          = 3002
+install_dep_apps      = nodejs_v20
+ctl_stop              = true
+changelog             = 首个版本：行情榜单、个股分时与 K 线、五档盘口、交易委托、持仓盈亏、自选股与资讯。
